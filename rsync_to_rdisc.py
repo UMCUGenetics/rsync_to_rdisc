@@ -13,7 +13,6 @@ import datetime, time
 from os import stat
 from pwd import getpwuid
 import socket
-
 ####################################################################################################################################
 # AUTHOR:       M.G. Elferink
 # DATE:         29-04-2014
@@ -45,6 +44,14 @@ def make_mail(filename,state):
 		email_to = [settings.email_from]
                 subject = 'ERROR: mount to BGarray for {}'.format(socket.gethostname())
                 text = "<html><body><p>"+'Mount to BGarray is lost for {}'.format(socket.gethostname())+"</p></body></html>"
+	elif state[0] == "cleanup":
+		try:
+                        email_to=[settings.owner_dic[find_owner(filename)]]
+                except:
+                        email_to = settings.finished_mail
+                """ Send complete mail """
+                subject = 'PLEASE CLEAN-UP YOUR RUN {} !'.format(filename)
+                text = "<html><body><p>"+'Data not transferred to BGarray. Run {}'.format(filename)+"</p></body></html>"
         send_email(settings.email_from, email_to, subject, text)
 
 def send_email(sender, receivers, subject, text, attachment=None):
@@ -112,6 +119,10 @@ def sync(action1,action2,item,processed,folder): ## check if run has been (succe
         	try: ## check runid in dictionary
 			dic[str(run)+"_"+str(folder)]
             	except:
+			raw_file=''
+			if folder == "Exomes" or folder == "Genepanels":
+				raw_file=commands.getoutput("find "+str(item)+"/"+str(run)+" -maxdepth 1 -iname \"*.raw_variants.vcf\"")
+
 			if folder == "RAW_data_MIPS":
 				done_file='{}/{}/{}/{}'.format(wkdir,folder,run,'TransferDone.txt')
 				if not isfile(done_file):
@@ -123,18 +134,21 @@ def sync(action1,action2,item,processed,folder): ## check if run has been (succe
                                 	state = check(action,run,processed,file_org,folder)
                                 	run_list+=[run]
 			else:
-				action= str(action1)+str(run)+"\""+str(action2)
-				os.system("echo \"\n#########\nDate: "+str(date)+"\nRun_folder: "+str(run)+ "\" >>/data/DIT-bgarray/" +str(log))
-				file_org="" ## dummy
-				state = check(action,run,processed,file_org,folder)
-				run_list+=[run]
+				if not isfile(raw_file):
+					action= str(action1)+str(run)+"\""+str(action2)
+					os.system("echo \"\n#########\nDate: "+str(date)+"\nRun_folder: "+str(run)+ "\" >>/data/DIT-bgarray/" +str(log))
+					file_org="" ## dummy
+					state = check(action,run,processed,file_org,folder)
+					run_list+=[run]
+				else:
+					make_mail(run, ["cleanup"])
+					
 	return state,run_list
 
 ### START ###
 
 # check if mount to BGarray intact. If not, restore
 if os.path.exists("/data/DIT-bgarray/Illumina/") == True:
-	#"Mount exist"
 	pass
 else:
 	print "Mount is lost. Please contact M. Elferink for restore"
