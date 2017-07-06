@@ -102,7 +102,8 @@ def check(action,run,processed,run_org,folder): ## perform actual Rsync command,
 
 
 def sync(action1,action2,item,processed,folder): ## check if run has been (succesfully) synced before. If so, skip, else perform sync
-
+	# touch running file
+	os.system("touch "+str(wkdir)+"/tranfer.running")
 	if folder == "RAW_data_MIPS":
 		rundir = []
 		sequencedir = os.listdir(str(item))
@@ -121,8 +122,7 @@ def sync(action1,action2,item,processed,folder): ## check if run has been (succe
             	except:
 			raw_file=''
 			if folder == "Exomes" or folder == "Genepanels":
-				raw_file=commands.getoutput("find "+str(item)+"/"+str(run)+" -maxdepth 1 -iname \"*.raw_variants.vcf\"")
-
+				raw_file=commands.getoutput("find -L "+str(item)+"/"+str(run)+" -maxdepth 1 -iname \"*.raw_variants.vcf\"")
 			if folder == "RAW_data_MIPS":
 				done_file='{}/{}/{}/{}'.format(wkdir,folder,run,'TransferDone.txt')
 				if not isfile(done_file):
@@ -141,8 +141,8 @@ def sync(action1,action2,item,processed,folder): ## check if run has been (succe
 					state = check(action,run,processed,file_org,folder)
 					run_list+=[run]
 				else:
-					make_mail(run, ["cleanup"])
-					
+					make_mail(str(wkdir)+str(folder)+"/"+str(run), ["cleanup"])
+	os.system("rm "+str(wkdir)+"/tranfer.running")
 	return state,run_list
 
 ### START ###
@@ -164,6 +164,11 @@ try:
 except:
 	new_file=open(str(wkdir)+"transferred_runs.txt","w")
 	new_file.close()
+
+# check if rsync is running
+running=str(wkdir)+"/tranfer.running"
+if os.path.isfile(running):
+	sys.exit()
 
 ## Rsync folders ##
 
