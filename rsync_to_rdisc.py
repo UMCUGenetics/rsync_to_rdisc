@@ -36,12 +36,21 @@ def make_mail(filename,state):
 		""" Send complete mail """
 	        subject = 'COMPLETED: Transfer to BGarray has succesfully completed for {}'.format(filename)
         	text = "<html><body><p>"+'Transfer to BGarray has succesfully completed for {}'.format(filename)+"</p></body></html>"
-	elif state[0] == "failed": # send error mail to owner of cronjob/mount
-        	email_to = [settings.email_from]
+	elif state[0] == "error": # send error mail to owner of cronjob/mount
+                try:
+                        email_to=[settings.owner_dic[find_owner(filename)]]
+                        email_to += [settings.finished_mail]
+                except:
+                        email_to = settings.finished_mail  
 		subject = 'ERROR: transfer to BGarray has not completed for {}'.format(filename)
                 text = "<html><body><p>"+'Transfer to BGarray has not been completed for {}'.format(filename)+"</p></body></html>"
 	elif state[0] == "lost":
-		email_to = [settings.email_from]
+                email_to=[]
+                try:
+                    for item in settings.owner_dic:
+                        email_to+=[settings.owner_dic[item]]
+                except:
+                    email_to = settings.finished_mail
                 subject = 'ERROR: mount to BGarray for {}'.format(socket.gethostname())
                 text = "<html><body><p>"+'Mount to BGarray is lost for {}'.format(socket.gethostname())+"</p></body></html>"
 	elif state[0] == "cleanup":
@@ -103,7 +112,7 @@ def check(action,run,processed,run_org,folder): ## perform actual Rsync command,
 
 def sync(action1,action2,item,processed,folder): ## check if run has been (succesfully) synced before. If so, skip, else perform sync
 	# touch running file
-	os.system("touch "+str(wkdir)+"/tranfer.running")
+	os.system("touch "+str(wkdir)+"/transfer.running")
 	if folder == "RAW_data_MIPS":
 		rundir = []
 		sequencedir = os.listdir(str(item))
@@ -142,7 +151,7 @@ def sync(action1,action2,item,processed,folder): ## check if run has been (succe
 					run_list+=[run]
 				else:
 					make_mail(str(wkdir)+str(folder)+"/"+str(run), ["cleanup"])
-	os.system("rm "+str(wkdir)+"/tranfer.running")
+	os.system("rm "+str(wkdir)+"/transfer.running")
 	return state,run_list
 
 ### START ###
@@ -154,7 +163,8 @@ else:
 	print "Mount is lost. Please contact M. Elferink for restore"
 	make_mail("mount", ["lost"])	
 	sys.exit()
-wkdir="/hpc/cog_bioinf/diagnostiek/processed/Upload/"
+
+wkdir=settings.wkdir
 dic={}
 try:
 	runs=open(str(wkdir)+"transferred_runs.txt","r").readlines()
@@ -166,15 +176,16 @@ except:
 	new_file.close()
 
 # check if rsync is running
-running=str(wkdir)+"/tranfer.running"
+running=str(wkdir)+"/transfer.running"
 if os.path.isfile(running):
 	sys.exit()
 
 ## Rsync folders ##
 
-log="Rsync_Dx.log"
-errorlog="Rsync_Dx.errorlog"
-temperror="/hpc/cog_bioinf/diagnostiek/processed/Upload/temp.error"
+log =settings.log
+errorlog=settings.errorlog
+temperror=settings.temperror
+
 date= str(datetime.datetime.now()).split(".")[0]
 lib_dir = os.walk(str(wkdir)).next()[1]
 for item in lib_dir:
