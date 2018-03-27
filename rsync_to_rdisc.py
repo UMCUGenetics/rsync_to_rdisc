@@ -243,3 +243,10 @@ for item in lib_dir:
                 action2=" /data/DIT-bgarray/RAW_data/BACKUP_TEMP/ 1>>/data/DIT-bgarray/"+str(log)+" 2>>/data/DIT-bgarray/" +str(errorlog)+" 2>"+str(temperror)
                 processed=1
                 state=sync(action1,action2,str(wkdir)+str(item),processed, folder)
+
+        elif item == "Genomes":
+                folder = "Genomes"
+                action1="rsync -rahuL --stats \""+ str(wkdir)+"Genomes/"
+                action2=" /data/DIT-bgarray/Illumina/Genomes 1>>/data/DIT-bgarray/"+str(log)+" 2>>/data/DIT-bgarray/" +str(errorlog)+" 2>"+str(temperror)
+                processed=1
+                state=sync(action1,action2,str(wkdir)+str(item),processed,folder)
