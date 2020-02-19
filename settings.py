@@ -7,11 +7,12 @@ temperror="/hpc/diaggen/data/upload/temp.error"
 
 # mail finished transfer 
 
-email_from=''
+email_from='<email>'
 
-finished_mail=[
-              ''
-              ]
+finished_mail=['<email>'
+               ]
 
-owner_dic={'':''}
+owner_dic={'<username1>':'<email1>',
+           '<username2>':'<email2>',
+          }
 
