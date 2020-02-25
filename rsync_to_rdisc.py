@@ -197,18 +197,6 @@ for item in lib_dir:
 		action2=" /data/DIT-bgarray/Illumina/Exomes/ 1>>/data/DIT-bgarray/"+str(log)+" 2>>/data/DIT-bgarray/" +str(errorlog)+" 2>"+str(temperror)
 		state=sync(action1,action2,str(wkdir)+str(item),processed,folder)
 
-	elif item == "Genepanels":
-		folder = "Genepanels"
-                action1="rsync -rahuL --stats \""+ str(wkdir)+"Genepanels/"
-		action2=" /data/DIT-bgarray/Illumina/Genepanels/ 1>>/data/DIT-bgarray/"+str(log)+" 2>>/data/DIT-bgarray/" +str(errorlog)+" 2>"+str(temperror) 
-                state=sync(action1,action2,str(wkdir)+str(item),processed,folder)
-
-	elif item == "NIPT":
-		folder="NIPT"
-                action1="rsync -rahuL --stats \""+ str(wkdir)+"NIPT/"
-		action2=" /data/DIT-bgarray/Illumina/NIPT/ 1>>/data/DIT-bgarray/"+str(log)+" 2>>/data/DIT-bgarray/" +str(errorlog)+" 2>"+str(temperror)
-                state=sync(action1,action2,str(wkdir)+str(item),processed,folder)
-	
 	elif item == "TRANSFER":
 		folder="TRANSFER"
 		action1="rsync -rahuL --stats \""+ str(wkdir)+"TRANSFER/"
@@ -227,13 +215,6 @@ for item in lib_dir:
 		folder = "RAW_data_MIPS"
                 action1="rsync -rahuL --stats \""+ str(wkdir)+"RAW_data_MIPS/"
                 action2=" /data/DIT-bgarray/RAW_data/MIPS 1>>/data/DIT-bgarray/"+str(log)+" 2>>/data/DIT-bgarray/" +str(errorlog)+" 2>"+str(temperror)
-                processed=1
-                state=sync(action1,action2,str(wkdir)+str(item),processed,folder)
-
-	elif item == "HMF":
-                folder = "HMF"
-                action1="rsync -rahuL --stats \""+ str(wkdir)+"HMF/"
-                action2=" /data/DIT-bgarray/Illumina/HMF 1>>/data/DIT-bgarray/"+str(log)+" 2>>/data/DIT-bgarray/" +str(errorlog)+" 2>"+str(temperror)
                 processed=1
                 state=sync(action1,action2,str(wkdir)+str(item),processed,folder)
 
