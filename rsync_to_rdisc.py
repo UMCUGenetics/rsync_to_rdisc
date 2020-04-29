@@ -76,8 +76,7 @@ def send_email(sender, receivers, subject, text, attachment=None):
         fp = open(attachment, 'rb')
         ctype, encoding = mimetypes.guess_type(attachment)
         if ctype is None or encoding is not None:
-            # No guess could be made, or the file is encoded (compressed), so
-            # use a generic bag-of-bits type.
+            """ No guess could be made, or the file is encoded (compressed), so use a generic bag-of-bits type."""
             ctype = 'application/octet-stream'
         maintype, subtype = ctype.split('/', 1)
         msg = MIMEBase(maintype, subtype)
@@ -94,35 +93,28 @@ def send_email(sender, receivers, subject, text, attachment=None):
     m.quit()
 
 def check(action, run, processed, run_org, folder): ## perform actual Rsync command, and check if no errors.
-    #print "Rsync run:" + str(run)
     print "Rsync run:{}".format(run)
     os.system(action)
-    #error = commands.getoutput("wc -l " + str(temperror))
     error = commands.getoutput("wc -l {}".format(temperror))
     if int(error.split()[0]) == 0: ## check if there are errors in de temporary error file. If so, do not include runid in transferred_runs.txt
         if processed == 1:
-            #os.system("echo " + str(run) + "_" + str(folder) + ">> " + str(wkdir) + "transferred_runs.txt")
             os.system("echo {run}_{folder} >> {wkdir}/transferred_runs.txt".format(
                 run = run,
                 folder = folder,
                 wkdir = wkdir
                 ))
 
-        #os.system("echo \"\n>>> No errors detected <<<\" >>/data/DIT-bgarray/" + str(log))
-        #os.system("rm " + str(temperror))
         os.system("echo \"\n>>> No errors detected <<<\" >>/data/DIT-bgarray/{}".format(log))
         os.system("rm {}".format(temperror))
         print "no errors"
         make_mail(str(wkdir) + str(folder) + "/" + str(run), ["ok"])
         return "ok"
     else:
-        #action = "echo \">>>\"" + str(run) + "_" + str(folder) + " \"errors detected in Processed data transfer, not added to completed files <<<\""
         action = "echo \">>>\" {run}_{folder} \"errors detected in Processed data transfer, not added to completed files <<<\" >> /data/DIT-bgarray/{log}".format(
             run = run,
             folder = folder ,
             log = log
             ) 
-        #os.system(action + ">>/data/DIT-bgarray/" + str(log))
         os.sytem(action)
         print "errors, check errorlog file"
         make_mail(run, ["error"])
@@ -133,11 +125,9 @@ def sync(action1, action2, folder, processed, item): ## check if run has been (s
         rundir = []
         sequencedir = os.listdir(str(folder))
         for sequencefolder in sequencedir: ## loop into sequencers
-            #runs = os.listdir(str(folder) + "/" + str(dir))
-            runs = os.listdir("{}/{}".format(folder,sequencefolder))
+            runs = os.listdir("{}/{}".format(folder, sequencefolder))
             for run in runs:
-                #rundir += [str(sequencefolder) + "/" + str(run)] 
-                rundir += ["{}/{}".format(sequencefolder,run)]
+                rundir += ["{}/{}".format(sequencefolder, run)]
     else:
         rundir = os.listdir(str(folder))
 
@@ -145,17 +135,14 @@ def sync(action1, action2, folder, processed, item): ## check if run has been (s
     run_list = []
     for run in rundir:
         try: ## check runid in dictionary
-            #dic[str(run) + "_" + str(item)]
-            dic["{}_{}".format(run,item)]
+            dic["{}_{}".format(run, item)]
         except:
             if item == "RAW_data_MIPS":
-                done_file = '{}/{}/{}/{}'.format(wkdir, item, run,'TransferDone.txt')
+                done_file = '{}/{}/{}/{}'.format(wkdir, item, run, 'TransferDone.txt')
                 if not isfile(done_file):
                     pass
                 else:
-                    #action = str(action1) + "/" + str(run) + " " + str(action2)
                     action = "{}/{} {}".format(action1,run,action2)
-                    #os.system("echo \"\n#########\nDate: " + str(date) + "\nRun_folder: " + str(run) + "\" >>/data/DIT-bgarray/" + str(log))
                     os.system("echo \"\n#########\nDate: {date} \nRun_folder: {run} \" >>/data/DIT-bgarray/{log}".format(
                         date = date,
                         run = run,
@@ -166,12 +153,9 @@ def sync(action1, action2, folder, processed, item): ## check if run has been (s
                     run_list += [run]
             else:
                 if item == "Exomes" and not os.path.isfile("{0}/{1}/workflow.done".format(folder, run)):  ## If IAP run is not completed.
-                    #make_mail(str(wkdir) + str(item) + " " + str(run), ["notcomplete"])
                     make_mail("{}/{} {}".format(wkdir, item, run), ["notcomplete"])
                 else:
-                    #action = str(action1) + "/" + str(run) + " " + str(action2)
                     action = "{}/{} {}".format(action1, run, action2)
-                    #os.system("echo \"\n#########\nDate: " + str(date) + "\nRun_folder: " + str(run) + "\" >>/data/DIT-bgarray/" + str(log))
                     os.system("echo \"\n#########\nDate: {date} \nRun_folder: {run} \" >>/data/DIT-bgarray/{log}".format( 
                         date = date,
                         run = run,
@@ -223,11 +207,8 @@ for item in lib_dir:
     if item not in settings.folder_list:
         print "Folder does not exist"
     else:
-        #folder = str(wkdir) + "/" + str(item)
-        folder = "{}/{}".format(wkdir,item)
-        #action1 = "rsync -rahuL --stats " + str(folder)
+        folder = "{}/{}".format(wkdir, item)
         action1 = "rsync -rahuL --stats {}".format(folder)
-        #action2 = " /data/DIT-bgarray/Illumina/" + str(item) + "/ 1>>/data/DIT-bgarray/" + str(log) + " 2>>/data/DIT-bgarray/" + str(errorlog) + " 2>" + str(temperror) 
         action2 = " /data/DIT-bgarray/Illumina/{item}/ 1>> /data/DIT-bgarray/{log} 2>> /data/DIT-bgarray/{errorlog} 2> {temperror}".format(
             item = item,
             log = log,
@@ -236,5 +217,4 @@ for item in lib_dir:
             ) 
         state = sync(action1, action2, folder, processed, item)
 
-#os.system("rm " + running)
 os.system("rm {}".format(running))
