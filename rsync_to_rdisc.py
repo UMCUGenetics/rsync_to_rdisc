@@ -1,16 +1,10 @@
 #! /usr/bin/env python
 import sys
 import os
-#import re
-#import math
-#import time
 import commands
 import datetime
-#from os import stat
 from pwd import getpwuid
-#from os.path import join, isdir, isfile, split
 from os.path import join, isfile, split
-#from os import system, walk, listdir, chdir, rename, stat,lstat
 from email import encoders
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
@@ -18,7 +12,6 @@ from email.mime.text import MIMEText
 import smtplib
 import mimetypes
 import socket
-
 import settings
 
 ####################################################################################################################################
@@ -82,7 +75,7 @@ def send_email(sender, receivers, subject, text, attachment=None):
         msg = MIMEBase(maintype, subtype)
         msg.set_payload(fp.read())
         fp.close()
-        # Encode the payload using Base64
+        """Encode the payload using Base64"""
         encoders.encode_base64(msg)
         msg.add_header('Content-Disposition', 'attachment', filename=filename)
         mail.attach(msg)
@@ -166,9 +159,7 @@ def sync(action1, action2, folder, processed, item): ## check if run has been (s
                     run_list += [run]
     return state, run_list
 
-### START ###
-
-# check if mount to BGarray intact. If not, restore
+"""Check if mount to BGarray intact. If not, restore."""
 if os.path.exists("/data/DIT-bgarray/Illumina/") == True:
     pass
 else:
@@ -186,15 +177,14 @@ except:
     new_file = open(str(wkdir) + "transferred_runs.txt", "w")
     new_file.close()
 
-# if running exit, else create transfer.running file and continue
+"""If running exit, else create transfer.running file and continue"""
 running = str(wkdir) + "/transfer.running"
 if os.path.isfile(running):
     sys.exit()
 else:
     os.system("touch " + running)
 
-## Rsync folders ##
-
+"""Rsync folders."""
 log = settings.log
 errorlog = settings.errorlog
 temperror = settings.temperror
