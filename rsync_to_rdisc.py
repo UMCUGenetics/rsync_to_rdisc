@@ -194,13 +194,13 @@ lib_dir = os.walk(str(wkdir)).next()[1]
 for item in lib_dir:
     processed = 1
     state = [""]
-    if item not in settings.folder_list:
-        print "Folder does not exist"
+    if item not in settings.folder_dic:
+        pass
     else:
         folder = "{}/{}".format(wkdir, item)
         action1 = "rsync -rahuL --stats {}".format(folder)
-        action2 = " /data/DIT-bgarray/Illumina/{item}/ 1>> /data/DIT-bgarray/{log} 2>> /data/DIT-bgarray/{errorlog} 2> {temperror}".format(
-            item = item,
+        action2 = " {output}/ 1>> /data/DIT-bgarray/{log} 2>> /data/DIT-bgarray/{errorlog} 2> {temperror}".format(
+            output = settings.folder_dic[item],
             log = log,
             errorlog = errorlog,
             temperror = temperror
