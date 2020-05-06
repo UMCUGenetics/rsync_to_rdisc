@@ -25,37 +25,36 @@ def find_owner(filename):
 
 def make_mail(filename, state):
     if state[0] == "ok": 
-        try:
+        if find_owner(filename) in settings.owner_dic:
             email_to = [settings.owner_dic[find_owner(filename)]]
-        except:
-             email_to = settings.finished_mail
+        else:
+            email_to = settings.finished_mail
+
         """ Send complete mail """
         subject = 'COMPLETED: Transfer to BGarray has succesfully completed for {}'.format(filename)
         text = "<html><body><p>" + 'Transfer to BGarray has succesfully completed for {}'.format(filename) + "</p></body></html>"
     elif state[0] == "error": # send error mail to owner of cronjob/mount
-        try:
+        if find_owner(filename) in settings.owner_dic:
             email_to = [settings.owner_dic[find_owner(filename)]]
-            email_to += [settings.finished_mail]
-        except:
+            email_to += settings.finished_mail
+        else:
             email_to = settings.finished_mail  
         subject = 'ERROR: transfer to BGarray has not completed for {}'.format(filename)
         text = "<html><body><p>" + 'Transfer to BGarray has not been completed for {}'.format(filename) + "</p></body></html>"
     elif state[0] == "lost":
         email_to = []
-        try:
-            for item in settings.owner_dic:
+        for item in settings.owner_dic:
                 email_to += [settings.owner_dic[item]]
-        except:
-            email_to = settings.finished_mail
+                email_to += settings.finished_mail
         subject = 'ERROR: mount to BGarray for {}'.format(socket.gethostname())
         text = "<html><body><p>" + 'Mount to BGarray is lost for {}'.format(socket.gethostname()) + "</p></body></html>"
     elif state[0] == "notcomplete":
-        try:
+        if find_owner(filename) in settings.owner_dic:
             email_to = [settings.owner_dic[find_owner(filename)]]
-        except:
+        else:
             email_to = settings.finished_mail
         """ Send complete mail """
-        subject = 'IAP analysis not complete (no workflow.done file). Run = {} !'.format(filename)
+        subject = 'Exome analysis not complete (no workflow.done file). Run = {} !'.format(filename)
         text = "<html><body><p>" + 'Data not transferred to BGarray. Run {}'.format(filename) + "</p></body></html>"
     send_email(settings.email_from, email_to, subject, text)
 
@@ -127,9 +126,8 @@ def sync(action1, action2, folder, processed, item): ## check if run has been (s
     state = "hold"
     run_list = []
     for run in rundir:
-        try: ## check runid in dictionary
-            dic["{}_{}".format(run, item)]
-        except:
+        analysis = "{}_{}".format(run, item)
+        if analysis not in transferred_dic: # Skip run if already in transferred.txt file 
             if item == "RAW_data_MIPS":
                 done_file = '{}/{}/{}/{}'.format(wkdir, item, run, 'TransferDone.txt')
                 if not isfile(done_file):
@@ -145,7 +143,7 @@ def sync(action1, action2, folder, processed, item): ## check if run has been (s
                     state = check(action, run, processed, file_org, item)
                     run_list += [run]
             else:
-                if item == "Exomes" and not os.path.isfile("{0}/{1}/workflow.done".format(folder, run)):  ## If IAP run is not completed.
+                if item == "Exomes" and not os.path.isfile("{0}/{1}/workflow.done".format(folder, run)):  ## If exome run is not completed.
                     make_mail("{}/{} {}".format(wkdir, item, run), ["notcomplete"])
                 else:
                     action = "{}/{} {}".format(action1, run, action2)
@@ -168,12 +166,13 @@ else:
     sys.exit()
 
 wkdir = settings.wkdir
-dic = {}
-try:
+transferred_dic = {}
+
+if os.path.isfile(str(wkdir) + "transferred_runs.txt"):
     runs = open(str(wkdir) + "transferred_runs.txt", "r").readlines()
     for line in runs:
-        dic[line.rstrip()] = ""
-except:
+        transferred_dic[line.rstrip()] = ""
+else:
     new_file = open(str(wkdir) + "transferred_runs.txt", "w")
     new_file.close()
 
