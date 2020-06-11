@@ -99,7 +99,7 @@ def check(action, run, processed, run_org, folder): ## perform actual Rsync comm
         os.system("echo \"\n>>> No errors detected <<<\" >>/data/DIT-bgarray/{}".format(log))
         os.system("rm {}".format(temperror))
         print "no errors"
-        make_mail(str(wkdir) + str(folder) + "/" + str(run), ["ok"])
+        make_mail("{}/{}/{}".format(wkdir, folder, run), ["ok"])
         return "ok"
     else:
         action = "echo \">>>\" {run}_{folder} \"errors detected in Processed data transfer, not added to completed files <<<\" >> /data/DIT-bgarray/{log}".format(
@@ -109,7 +109,7 @@ def check(action, run, processed, run_org, folder): ## perform actual Rsync comm
             ) 
         os.sytem(action)
         print "errors, check errorlog file"
-        make_mail(run, ["error"])
+        make_mail("{}/{}/{}".format(wkdir, folder, run), ["error"])
         return "error"
 
 def sync(action1, action2, folder, processed, item): ## check if run has been (succesfully) synced before. If so, skip, else perform sync
@@ -144,7 +144,7 @@ def sync(action1, action2, folder, processed, item): ## check if run has been (s
                     run_list += [run]
             else:
                 if item == "Exomes" and not os.path.isfile("{0}/{1}/workflow.done".format(folder, run)):  ## If exome run is not completed.
-                    make_mail("{}/{} {}".format(wkdir, item, run), ["notcomplete"])
+                    make_mail("{}/{}/{}".format(wkdir, item, run), ["notcomplete"])
                 else:
                     action = "{}/{} {}".format(action1, run, action2)
                     os.system("echo \"\n#########\nDate: {date} \nRun_folder: {run} \" >>/data/DIT-bgarray/{log}".format( 
