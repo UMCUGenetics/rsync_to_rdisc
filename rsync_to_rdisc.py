@@ -107,7 +107,7 @@ def check(action, run, processed, run_org, folder): ## perform actual Rsync comm
             folder = folder ,
             log = log
             ) 
-        os.sytem(action)
+        os.system(action)
         print "errors, check errorlog file"
         make_mail("{}/{}/{}".format(wkdir, folder, run), ["error"])
         return "error"
