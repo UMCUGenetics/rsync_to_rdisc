@@ -86,26 +86,23 @@ def check(action, run, processed, run_org, folder): ## perform actual Rsync comm
     print "Rsync run:{}".format(run)
     os.system(action)
     error = commands.getoutput("wc -l {}".format(temperror))
+    bgarray_log_file = "{bgarray}/{log}".format(bgarray=settings.bgarray, log=log)
     if int(error.split()[0]) == 0: ## check if there are errors in de temporary error file. If so, do not include runid in transferred_runs.txt
         if processed == 1:
-            os.system("echo {run}_{folder} >> {wkdir}/transferred_runs.txt".format(
-                run = run,
-                folder = folder,
-                wkdir = wkdir
-                ))
+            transferred_runs_file = "{wkdir}/transferred_runs.txt".format(wkdir = wkdir)
+            with open(transferred_runs_file, 'a') as log_file:
+                log_file.write("{run}_{folder}\n".format(run = run, folder = folder))
 
-        os.system("echo \"\n>>> No errors detected <<<\" >>{bgarray}/{log}".format(bgarray=settings.bgarray, log=log))
+        with open(bgarray_log_file, 'a') as log_file:
+            log_file.write("\n>>> No errors detected <<<\n")
+
         os.system("rm {}".format(temperror))
         print "no errors"
         make_mail("{}/{}/{}".format(wkdir, folder, run), ["ok"])
         return "ok"
     else:
-        action = "echo \">>>\" {run}_{folder} \"errors detected in Processed data transfer, not added to completed files <<<\" >> {bgarray}/{log}".format(
-            run=run,
-            folder=folder,
-            bgarray=settings.bgarray,
-            log=log
-            ) 
+        with open(bgarray_log_file, 'a') as log_file:
+            log_file.write("\n>>>{run}_{folder} errors detected in Processed data transfer, not added to completed files <<<\n".format(run=run, folder=folder))
         os.system(action)
         print "errors, check errorlog file"
         make_mail("{}/{}/{}".format(wkdir, folder, run), ["error"])
@@ -127,18 +124,15 @@ def sync(action1, action2, folder, processed, item): ## check if run has been (s
     for run in rundir:
         analysis = "{}_{}".format(run, item)
         if analysis not in transferred_dic: # Skip run if already in transferred.txt file 
+            bgarray_log_file = "{bgarray}/{log}".format(bgarray=settings.bgarray, log = log) 
             if item == "RAW_data_MIPS":
                 done_file = '{}/{}/{}/{}'.format(wkdir, item, run, 'TransferDone.txt')
                 if not isfile(done_file):
                     pass
                 else:
                     action = "{}/{} {}".format(action1,run,action2)
-                    os.system("echo \"\n#########\nDate: {date} \nRun_folder: {run} \" >>{bgarray}/{log}".format(
-                        date = date,
-                        run = run,
-                        bgarray=settings.bgarray,
-                        log = log
-                        ))
+                    with open(bgarray_log_file, 'a') as log_file: 
+                        log_file.write("\n#########\nDate: {date}\nRun_folder: {run}".format(date = date,  run = run))
                     file_org = "" ## dummy
                     state = check(action, run, processed, file_org, item)
                     run_list += [run]
@@ -147,12 +141,8 @@ def sync(action1, action2, folder, processed, item): ## check if run has been (s
                     make_mail("{}/{}/{}".format(wkdir, item, run), ["notcomplete"])
                 else:
                     action = "{}/{} {}".format(action1, run, action2)
-                    os.system("echo \"\n#########\nDate: {date} \nRun_folder: {run} \" >>{bgarray}/{log}".format( 
-                        date = date,
-                        run = run,
-                        bgarray=settings.bgarray,
-                        log = log
-                        ))  
+                     with open(bgarray_log_file, 'a') as log_file:
+                        log_file.write("\n#########\nDate: {date}\nRun_folder: {run}".format(date = date,  run = run))
                     file_org = "" ## dummy
                     state = check(action, run, processed, file_org, item)
                     run_list += [run]
