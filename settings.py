@@ -10,7 +10,8 @@ folder_dic = {"Exomes":"/data/diaggen/DIT-bgarray/Illumina/Exomes",
     "MIPS":"/data/diaggen/DIT-bgarray/Illumina/MIPS", 
     "RAW_data_MIPS":"/data/diaggen/DIT-bgarray/RAW_data/MIPS", 
     "RAW_data":"/data/diaggen/DIT-bgarray/RAW_data/BACKUP_TEMP", 
-    "Genomes":"/data/diaggen/DIT-bgarray/Illumina/Genomes"}
+    "Genomes":"/data/diaggen/DIT-bgarray/Illumina/Genomes"
+    }
 
 """Mail finished transfer"""
 email_from = '<email>'
