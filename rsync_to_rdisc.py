@@ -15,9 +15,7 @@ import socket
 import settings
 
 ####################################################################################################################################
-# AUTHOR:       M.G. Elferink
-# DATE:         29-04-2014
-# Purpose:    Automatic sync Dx-run folders within to /data/DIT-bgarray/
+# Purpose:    Automatic sync Dx-run folders within to bgarray
 ####################################################################################################################################
 
 def find_owner(filename):
@@ -96,16 +94,17 @@ def check(action, run, processed, run_org, folder): ## perform actual Rsync comm
                 wkdir = wkdir
                 ))
 
-        os.system("echo \"\n>>> No errors detected <<<\" >>/data/DIT-bgarray/{}".format(log))
+        os.system("echo \"\n>>> No errors detected <<<\" >>{bgarray}/{log}".format(bgarray=settings.bgarray, log=log))
         os.system("rm {}".format(temperror))
         print "no errors"
         make_mail("{}/{}/{}".format(wkdir, folder, run), ["ok"])
         return "ok"
     else:
-        action = "echo \">>>\" {run}_{folder} \"errors detected in Processed data transfer, not added to completed files <<<\" >> /data/DIT-bgarray/{log}".format(
-            run = run,
-            folder = folder ,
-            log = log
+        action = "echo \">>>\" {run}_{folder} \"errors detected in Processed data transfer, not added to completed files <<<\" >> {bgarray}/{log}".format(
+            run=run,
+            folder=folder,
+            bgarray=settings.bgarray,
+            log=log
             ) 
         os.system(action)
         print "errors, check errorlog file"
@@ -134,9 +133,10 @@ def sync(action1, action2, folder, processed, item): ## check if run has been (s
                     pass
                 else:
                     action = "{}/{} {}".format(action1,run,action2)
-                    os.system("echo \"\n#########\nDate: {date} \nRun_folder: {run} \" >>/data/DIT-bgarray/{log}".format(
+                    os.system("echo \"\n#########\nDate: {date} \nRun_folder: {run} \" >>{bgarray}/{log}".format(
                         date = date,
                         run = run,
+                        bgarray=settings.bgarray,
                         log = log
                         ))
                     file_org = "" ## dummy
@@ -147,9 +147,10 @@ def sync(action1, action2, folder, processed, item): ## check if run has been (s
                     make_mail("{}/{}/{}".format(wkdir, item, run), ["notcomplete"])
                 else:
                     action = "{}/{} {}".format(action1, run, action2)
-                    os.system("echo \"\n#########\nDate: {date} \nRun_folder: {run} \" >>/data/DIT-bgarray/{log}".format( 
+                    os.system("echo \"\n#########\nDate: {date} \nRun_folder: {run} \" >>{bgarray}/{log}".format( 
                         date = date,
                         run = run,
+                        bgarray=settings.bgarray,
                         log = log
                         ))  
                     file_org = "" ## dummy
@@ -158,7 +159,7 @@ def sync(action1, action2, folder, processed, item): ## check if run has been (s
     return state, run_list
 
 """Check if mount to BGarray intact. If not, restore."""
-if os.path.exists("/data/DIT-bgarray/Illumina/") == True:
+if os.path.exists("{bgarray}/Illumina/".format(bgarray=settings.bgarray)) == True:
     pass
 else:
     print "Mount is lost. Please contact M. Elferink for restore"
@@ -198,8 +199,9 @@ for item in lib_dir:
     else:
         folder = "{}/{}".format(wkdir, item)
         action1 = "rsync -rahuL --stats {}".format(folder)
-        action2 = " {output}/ 1>> /data/DIT-bgarray/{log} 2>> /data/DIT-bgarray/{errorlog} 2> {temperror}".format(
+        action2 = " {output}/ 1>> {bgarray/{log} 2>> {bgarray}/{errorlog} 2> {temperror}".format(
             output = settings.folder_dic[item],
+            bgarray=settings.bgarray,
             log = log,
             errorlog = errorlog,
             temperror = temperror
