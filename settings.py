@@ -5,7 +5,8 @@ errorlog = "Rsync_Dx.errorlog"
 temperror = "/hpc/diaggen/data/upload/temp.error"
 bgarray = "/data/diaggen/DIT-bgarray" 
 
-folder_dic = {"Exomes":"/data/diaggen/DIT-bgarray/Illumina/Exomes", 
+folder_dic = {
+    "Exomes":"/data/diaggen/DIT-bgarray/Illumina/Exomes", 
     "TRANSFER":"/data/diaggen/DIT-bgarray/TRANSFER", 
     "MIPS":"/data/diaggen/DIT-bgarray/Illumina/MIPS", 
     "RAW_data_MIPS":"/data/diaggen/DIT-bgarray/RAW_data/MIPS", 
