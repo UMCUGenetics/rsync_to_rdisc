@@ -23,32 +23,33 @@ def find_owner(filename):
 
 def make_mail(filename, state):
     file_owner = find_owner(filename)
-    if file_owner not in settings.owner_dic:
+
+    if user not in users:
         email_to = [settings.finished_mail]
-        subject = 'USER WARNING: user {} does not exist'.format(file_owner)
-        text = "<html><body><p>" + 'User {} does not exist in settings.py. Please add.'.format(file_owner) + "</p></body></html>"
-    elif state[0] == "ok": 
-        email_to = [settings.owner_dic[file_owner]]
-        """ Send complete mail """
-        subject = 'COMPLETED: Transfer to BGarray has succesfully completed for {}'.format(filename)
-        text = "<html><body><p>" + 'Transfer to BGarray has succesfully completed for {}'.format(filename) + "</p></body></html>"
-    elif state[0] == "error": 
-        email_to = [settings.owner_dic[file_owner]]
-        email_to += settings.finished_mail
-        subject = 'ERROR: transfer to BGarray has not completed for {}'.format(filename)
-        text = "<html><body><p>" + 'Transfer to BGarray has not been completed for {}'.format(filename) + "</p></body></html>"
     elif state[0] == "lost":
         email_to = []
         for item in settings.owner_dic:
             email_to += [settings.owner_dic[item]]
         email_to += settings.finished_mail
-        subject = 'ERROR: mount lost to BGarray for {}'.format(socket.gethostname())
-        text = "<html><body><p>" + 'Mount to BGarray is lost for {}'.format(socket.gethostname()) + "</p></body></html>"
-    elif state[0] == "notcomplete":
+    else:
         email_to = [settings.owner_dic[file_owner]]
-        """ Send complete mail """
-        subject = 'Exome analysis not complete (no workflow.done file). Run = {} !'.format(filename)
-        text = "<html><body><p>" + 'Data not transferred to BGarray. Run {}'.format(filename) + "</p></body></html>"
+
+    if state[0] == "ok":
+        subject = "COMPLETED: Transfer to BGarray has succesfully completed for {}".format(filename)
+        text = "<html><body><p>Transfer to BGarray has succesfully completed for {}</p></body></html>".format(filename)
+    elif state[0] == "error":
+        subject = "ERROR: transfer to BGarray has not completed for {}".format(filename)
+        text = "<html><body><p>Transfer to BGarray has not been completed for {}</p></body></html>".format(filename)
+    elif state[0] == "lost":
+        subject = "ERROR: mount lost to BGarray for {}".format(socket.gethostname())
+        text = "<html><body><p>Mount to BGarray is lost for {}</p></body></html>".format(socket.gethostname())
+    elif state[0] == "notcomplete":
+        subject = "Exome analysis not complete (no workflow.done file). Run = {}!".format(filename)
+        text = "<html><body><p> Data not transferred to BGarray. Run {}</p></body></html>".format(filename)
+
+    if user not in users:
+        subject = "WARNING user {0} does not exist! {1}".format(file_owner, subject)
+
     send_email(settings.email_from, email_to, subject, text)
 
 def send_email(sender, receivers, subject, text, attachment=None):
