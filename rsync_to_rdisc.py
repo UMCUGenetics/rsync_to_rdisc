@@ -15,40 +15,42 @@ import socket
 import settings
 
 ####################################################################################################################################
-# Purpose:    Automatic sync Dx-run folders within to bgarray
+# Purpose:    Automatic sync Dx-run folders to bgarray
 ####################################################################################################################################
 
 def find_owner(filename):
     return getpwuid(os.lstat(filename).st_uid).pw_name
 
 def make_mail(filename, state):
-    file_owner = find_owner(filename)
 
-    if user not in users:
-        email_to = [settings.finished_mail]
-    elif state[0] == "lost":
+    if state[0] is "lost":
+        file_owner = ''
         email_to = []
         for item in settings.owner_dic:
             email_to += [settings.owner_dic[item]]
         email_to += settings.finished_mail
     else:
-        email_to = [settings.owner_dic[file_owner]]
+        file_owner = find_owner(filename)
+        if file_owner not in settings.owner_dic:
+            email_to = [settings.finished_mail]
+        else:
+            email_to = [settings.owner_dic[file_owner]]
 
-    if state[0] == "ok":
+    if state[0] is "ok":
         subject = "COMPLETED: Transfer to BGarray has succesfully completed for {}".format(filename)
         text = "<html><body><p>Transfer to BGarray has succesfully completed for {}</p></body></html>".format(filename)
-    elif state[0] == "error":
+    elif state[0] is "error":
         subject = "ERROR: transfer to BGarray has not completed for {}".format(filename)
         text = "<html><body><p>Transfer to BGarray has not been completed for {}</p></body></html>".format(filename)
-    elif state[0] == "lost":
+    elif state[0] is "lost":
         subject = "ERROR: mount lost to BGarray for {}".format(socket.gethostname())
         text = "<html><body><p>Mount to BGarray is lost for {}</p></body></html>".format(socket.gethostname())
-    elif state[0] == "notcomplete":
+    elif state[0] is "notcomplete":
         subject = "Exome analysis not complete (no workflow.done file). Run = {}!".format(filename)
         text = "<html><body><p> Data not transferred to BGarray. Run {}</p></body></html>".format(filename)
 
-    if user not in users:
-        subject = "WARNING user {0} does not exist! {1}".format(file_owner, subject)
+    if file_owner not in settings.owner_dic and state[0] is not "lost":
+        subject = "WARNING user {} does not exist! {}".format(file_owner, subject)
 
     send_email(settings.email_from, email_to, subject, text)
 
@@ -133,11 +135,11 @@ def sync(action1, action2, folder, processed, item): ## check if run has been (s
                     state = check(action, run, processed, file_org, item)
                     run_list += [run]
             else:
-                if item == "Exomes" and not os.path.isfile("{0}/{1}/workflow.done".format(folder, run)):  ## If exome run is not completed.
+                if item == "Exomes" and not os.path.isfile("{}/{}/workflow.done".format(folder, run)):  ## If exome run is not completed.
                     make_mail("{}/{}/{}".format(wkdir, item, run), ["notcomplete"])
                 else:
                     action = "{}/{} {}".format(action1, run, action2)
-                     with open(bgarray_log_file, 'a') as log_file:
+                    with open(bgarray_log_file, 'a') as log_file:
                         log_file.write("\n#########\nDate: {date}\nRun_folder: {run}".format(date = date,  run = run))
                     file_org = "" ## dummy
                     state = check(action, run, processed, file_org, item)
@@ -185,7 +187,7 @@ for item in lib_dir:
     else:
         folder = "{}/{}".format(wkdir, item)
         action1 = "rsync -rahuL --stats {}".format(folder)
-        action2 = " {output}/ 1>> {bgarray/{log} 2>> {bgarray}/{errorlog} 2> {temperror}".format(
+        action2 = " {output}/ 1>> {bgarray}/{log} 2>> {bgarray}/{errorlog} 2> {temperror}".format(
             output = settings.folder_dic[item],
             bgarray=settings.bgarray,
             log = log,
