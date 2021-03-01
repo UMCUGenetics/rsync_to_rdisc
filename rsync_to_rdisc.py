@@ -21,36 +21,29 @@ import settings
 def find_owner(filename):
     return getpwuid(os.lstat(filename).st_uid).pw_name
 
-def make_mail(filename, state):
 
-    if state[0] is "lost":
-        file_owner = ''
-        email_to = []
-        for item in settings.owner_dic:
-            email_to += [settings.owner_dic[item]]
-        email_to += settings.finished_mail
+def make_mail(filename, state):
+    if state[0] == "lost":
+        email_to = [settings.owner_dic[item] for item in settings.owner_dic]
+        subject = "ERROR: mount lost to BGarray for {}".format(socket.gethostname())
+        text = "<html><body><p>Mount to BGarray is lost for {}</p></body></html>".format(socket.gethostname())
     else:
+        if state[0] == "ok":
+            subject = "COMPLETED: Transfer to BGarray has succesfully completed for {}".format(filename)
+            text = "<html><body><p>Transfer to BGarray has succesfully completed for {}</p></body></html>".format(filename)
+        elif state[0] == "error":
+            subject = "ERROR: transfer to BGarray has not completed for {}".format(filename)
+            text = "<html><body><p>Transfer to BGarray has not been completed for {}</p></body></html>".format(filename)
+        elif state[0] == "notcomplete":
+            subject = "Exome analysis not complete (no workflow.done file). Run = {}!".format(filename)
+            text = "<html><body><p> Data not transferred to BGarray. Run {}</p></body></html>".format(filename)
+
         file_owner = find_owner(filename)
         if file_owner not in settings.owner_dic:
             email_to = [settings.finished_mail]
+            subject = "WARNING user {} does not exist! {}".format(file_owner, subject)
         else:
             email_to = [settings.owner_dic[file_owner]]
-
-    if state[0] is "ok":
-        subject = "COMPLETED: Transfer to BGarray has succesfully completed for {}".format(filename)
-        text = "<html><body><p>Transfer to BGarray has succesfully completed for {}</p></body></html>".format(filename)
-    elif state[0] is "error":
-        subject = "ERROR: transfer to BGarray has not completed for {}".format(filename)
-        text = "<html><body><p>Transfer to BGarray has not been completed for {}</p></body></html>".format(filename)
-    elif state[0] is "lost":
-        subject = "ERROR: mount lost to BGarray for {}".format(socket.gethostname())
-        text = "<html><body><p>Mount to BGarray is lost for {}</p></body></html>".format(socket.gethostname())
-    elif state[0] is "notcomplete":
-        subject = "Exome analysis not complete (no workflow.done file). Run = {}!".format(filename)
-        text = "<html><body><p> Data not transferred to BGarray. Run {}</p></body></html>".format(filename)
-
-    if file_owner not in settings.owner_dic and state[0] is not "lost":
-        subject = "WARNING user {} does not exist! {}".format(file_owner, subject)
 
     send_email(settings.email_from, email_to, subject, text)
 
