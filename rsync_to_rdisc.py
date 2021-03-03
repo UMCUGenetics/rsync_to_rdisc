@@ -15,47 +15,36 @@ import socket
 import settings
 
 ####################################################################################################################################
-# AUTHOR:       M.G. Elferink
-# DATE:         29-04-2014
-# Purpose:    Automatic sync Dx-run folders within to /data/DIT-bgarray/
+# Purpose:    Automatic sync Dx-run folders to bgarray
 ####################################################################################################################################
 
 def find_owner(filename):
     return getpwuid(os.lstat(filename).st_uid).pw_name
 
-def make_mail(filename, state):
-    if state[0] == "ok": 
-        if find_owner(filename) in settings.owner_dic:
-            email_to = [settings.owner_dic[find_owner(filename)]]
-        else:
-            email_to = settings.finished_mail
 
-        """ Send complete mail """
-        subject = 'COMPLETED: Transfer to BGarray has succesfully completed for {}'.format(filename)
-        text = "<html><body><p>" + 'Transfer to BGarray has succesfully completed for {}'.format(filename) + "</p></body></html>"
-    elif state[0] == "error": # send error mail to owner of cronjob/mount
-        if find_owner(filename) in settings.owner_dic:
-            email_to = [settings.owner_dic[find_owner(filename)]]
-            email_to += settings.finished_mail
+def make_mail(filename, state):
+    if state[0] == "lost":
+        email_to = [settings.owner_dic[item] for item in settings.owner_dic]
+        subject = "ERROR: mount lost to BGarray for {}".format(socket.gethostname())
+        text = "<html><body><p>Mount to BGarray is lost for {}</p></body></html>".format(socket.gethostname())
+    else:
+        if state[0] == "ok":
+            subject = "COMPLETED: Transfer to BGarray has succesfully completed for {}".format(filename)
+            text = "<html><body><p>Transfer to BGarray has succesfully completed for {}</p></body></html>".format(filename)
+        elif state[0] == "error":
+            subject = "ERROR: transfer to BGarray has not completed for {}".format(filename)
+            text = "<html><body><p>Transfer to BGarray has not been completed for {}</p></body></html>".format(filename)
+        elif state[0] == "notcomplete":
+            subject = "Exome analysis not complete (no workflow.done file). Run = {}!".format(filename)
+            text = "<html><body><p> Data not transferred to BGarray. Run {}</p></body></html>".format(filename)
+
+        file_owner = find_owner(filename)
+        if file_owner not in settings.owner_dic:
+            email_to = [settings.finished_mail]
+            subject = "WARNING user {} does not exist! {}".format(file_owner, subject)
         else:
-            email_to = settings.finished_mail  
-        subject = 'ERROR: transfer to BGarray has not completed for {}'.format(filename)
-        text = "<html><body><p>" + 'Transfer to BGarray has not been completed for {}'.format(filename) + "</p></body></html>"
-    elif state[0] == "lost":
-        email_to = []
-        for item in settings.owner_dic:
-                email_to += [settings.owner_dic[item]]
-                email_to += settings.finished_mail
-        subject = 'ERROR: mount to BGarray for {}'.format(socket.gethostname())
-        text = "<html><body><p>" + 'Mount to BGarray is lost for {}'.format(socket.gethostname()) + "</p></body></html>"
-    elif state[0] == "notcomplete":
-        if find_owner(filename) in settings.owner_dic:
-            email_to = [settings.owner_dic[find_owner(filename)]]
-        else:
-            email_to = settings.finished_mail
-        """ Send complete mail """
-        subject = 'Exome analysis not complete (no workflow.done file). Run = {} !'.format(filename)
-        text = "<html><body><p>" + 'Data not transferred to BGarray. Run {}'.format(filename) + "</p></body></html>"
+            email_to = [settings.owner_dic[file_owner]]
+
     send_email(settings.email_from, email_to, subject, text)
 
 def send_email(sender, receivers, subject, text, attachment=None):
@@ -88,25 +77,23 @@ def check(action, run, processed, run_org, folder): ## perform actual Rsync comm
     print "Rsync run:{}".format(run)
     os.system(action)
     error = commands.getoutput("wc -l {}".format(temperror))
+    bgarray_log_file = "{bgarray}/{log}".format(bgarray=settings.bgarray, log=log)
     if int(error.split()[0]) == 0: ## check if there are errors in de temporary error file. If so, do not include runid in transferred_runs.txt
         if processed == 1:
-            os.system("echo {run}_{folder} >> {wkdir}/transferred_runs.txt".format(
-                run = run,
-                folder = folder,
-                wkdir = wkdir
-                ))
+            transferred_runs_file = "{wkdir}/transferred_runs.txt".format(wkdir = wkdir)
+            with open(transferred_runs_file, 'a') as log_file:
+                log_file.write("{run}_{folder}\n".format(run = run, folder = folder))
 
-        os.system("echo \"\n>>> No errors detected <<<\" >>/data/DIT-bgarray/{}".format(log))
+        with open(bgarray_log_file, 'a') as log_file:
+            log_file.write("\n>>> No errors detected <<<\n")
+
         os.system("rm {}".format(temperror))
         print "no errors"
         make_mail("{}/{}/{}".format(wkdir, folder, run), ["ok"])
         return "ok"
     else:
-        action = "echo \">>>\" {run}_{folder} \"errors detected in Processed data transfer, not added to completed files <<<\" >> /data/DIT-bgarray/{log}".format(
-            run = run,
-            folder = folder ,
-            log = log
-            ) 
+        with open(bgarray_log_file, 'a') as log_file:
+            log_file.write("\n>>>{run}_{folder} errors detected in Processed data transfer, not added to completed files <<<\n".format(run=run, folder=folder))
         os.system(action)
         print "errors, check errorlog file"
         make_mail("{}/{}/{}".format(wkdir, folder, run), ["error"])
@@ -128,37 +115,32 @@ def sync(action1, action2, folder, processed, item): ## check if run has been (s
     for run in rundir:
         analysis = "{}_{}".format(run, item)
         if analysis not in transferred_dic: # Skip run if already in transferred.txt file 
+            bgarray_log_file = "{bgarray}/{log}".format(bgarray=settings.bgarray, log = log) 
             if item == "RAW_data_MIPS":
                 done_file = '{}/{}/{}/{}'.format(wkdir, item, run, 'TransferDone.txt')
                 if not isfile(done_file):
                     pass
                 else:
                     action = "{}/{} {}".format(action1,run,action2)
-                    os.system("echo \"\n#########\nDate: {date} \nRun_folder: {run} \" >>/data/DIT-bgarray/{log}".format(
-                        date = date,
-                        run = run,
-                        log = log
-                        ))
+                    with open(bgarray_log_file, 'a') as log_file: 
+                        log_file.write("\n#########\nDate: {date}\nRun_folder: {run}".format(date = date,  run = run))
                     file_org = "" ## dummy
                     state = check(action, run, processed, file_org, item)
                     run_list += [run]
             else:
-                if item == "Exomes" and not os.path.isfile("{0}/{1}/workflow.done".format(folder, run)):  ## If exome run is not completed.
+                if item == "Exomes" and not os.path.isfile("{}/{}/workflow.done".format(folder, run)):  ## If exome run is not completed.
                     make_mail("{}/{}/{}".format(wkdir, item, run), ["notcomplete"])
                 else:
                     action = "{}/{} {}".format(action1, run, action2)
-                    os.system("echo \"\n#########\nDate: {date} \nRun_folder: {run} \" >>/data/DIT-bgarray/{log}".format( 
-                        date = date,
-                        run = run,
-                        log = log
-                        ))  
+                    with open(bgarray_log_file, 'a') as log_file:
+                        log_file.write("\n#########\nDate: {date}\nRun_folder: {run}".format(date = date,  run = run))
                     file_org = "" ## dummy
                     state = check(action, run, processed, file_org, item)
                     run_list += [run]
     return state, run_list
 
 """Check if mount to BGarray intact. If not, restore."""
-if os.path.exists("/data/DIT-bgarray/Illumina/") == True:
+if os.path.exists("{bgarray}/Illumina/".format(bgarray=settings.bgarray)) == True:
     pass
 else:
     print "Mount is lost. Please contact M. Elferink for restore"
@@ -198,8 +180,9 @@ for item in lib_dir:
     else:
         folder = "{}/{}".format(wkdir, item)
         action1 = "rsync -rahuL --stats {}".format(folder)
-        action2 = " {output}/ 1>> /data/DIT-bgarray/{log} 2>> /data/DIT-bgarray/{errorlog} 2> {temperror}".format(
+        action2 = " {output}/ 1>> {bgarray}/{log} 2>> {bgarray}/{errorlog} 2> {temperror}".format(
             output = settings.folder_dic[item],
+            bgarray=settings.bgarray,
             log = log,
             errorlog = errorlog,
             temperror = temperror
