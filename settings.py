@@ -17,7 +17,7 @@ folder_dic = {
 """Mail finished transfer"""
 email_from = '<email>'
 
-finished_mail = ['<email>']
+finished_mail = '<email>'
 
 owner_dic = {'<username1>':'<email1>','<username2>':'<email2>'}
 
