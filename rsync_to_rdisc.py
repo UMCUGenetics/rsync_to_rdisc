@@ -1,7 +1,7 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 import sys
 import os
-import commands
+import subprocess
 import datetime
 from pwd import getpwuid
 from os.path import join, isfile, split
@@ -74,9 +74,9 @@ def send_email(sender, receivers, subject, text, attachment=None):
     m.quit()
 
 def check(action, run, processed, run_org, folder): ## perform actual Rsync command, and check if no errors.
-    print "Rsync run:{}".format(run)
+    print("Rsync run:{}".format(run))
     os.system(action)
-    error = commands.getoutput("wc -l {}".format(temperror))
+    error = subprocess.getoutput("wc -l {}".format(temperror))
     bgarray_log_file = "{bgarray}/{log}".format(bgarray=settings.bgarray, log=log)
     if int(error.split()[0]) == 0: ## check if there are errors in de temporary error file. If so, do not include runid in transferred_runs.txt
         if processed == 1:
@@ -88,14 +88,14 @@ def check(action, run, processed, run_org, folder): ## perform actual Rsync comm
             log_file.write("\n>>> No errors detected <<<\n")
 
         os.system("rm {}".format(temperror))
-        print "no errors"
+        print("no errors")
         make_mail("{}/{}/{}".format(wkdir, folder, run), ["ok"])
         return "ok"
     else:
         with open(bgarray_log_file, 'a') as log_file:
             log_file.write("\n>>>{run}_{folder} errors detected in Processed data transfer, not added to completed files <<<\n".format(run=run, folder=folder))
         os.system(action)
-        print "errors, check errorlog file"
+        print("errors, check errorlog file")
         make_mail("{}/{}/{}".format(wkdir, folder, run), ["error"])
         return "error"
 
@@ -143,7 +143,7 @@ def sync(action1, action2, folder, processed, item): ## check if run has been (s
 if os.path.exists("{bgarray}/Illumina/".format(bgarray=settings.bgarray)) == True:
     pass
 else:
-    print "Mount is lost. Please contact M. Elferink for restore"
+    print("Mount is lost. Please contact M. Elferink for restore")
     make_mail("mount", ["lost"])    
     sys.exit()
 
