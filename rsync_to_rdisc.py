@@ -157,8 +157,10 @@ if __name__ == "__main__":
         continue_rsync = True
         state = [""]
         folder =  settings.folder_dic[to_be_transferred[run]]
-        action = "rsync -rahuL --stats {host}:{path}{run} {output}/ 1>> {bgarray}/{log} 2>> {bgarray}/{errorlog} 2> {temperror}".format(
-            host=settings.remote_server,
+
+        action = "rsync -rahuL --stats {user}@{server}:{path}{run} {output}/ 1>> {bgarray}/{log} 2>> {bgarray}/{errorlog} 2> {temperror}".format(
+            user=settings.user,
+            server=settings.server,
             path=folder[0],
             run=run,
             output=folder[1],
@@ -170,7 +172,13 @@ if __name__ == "__main__":
 
         if folder[2]: ## check if certain files need to be present in folder:
             file_path = "{0}{1}/{2}".format(folder[0], run, folder[2])
-            status = subprocess.getoutput('ssh -q {0} [[ -f {1} ]] && echo "Present" || echo "Absent"'.format(settings.remote_server, file_path))
+            status = subprocess.getoutput(
+                'ssh -q {user}@{server} [[ -f {file_path} ]] && echo "Present" || echo "Absent"'.format(
+                user=settings.user,
+                server=settings.server,
+                file_path=file_path
+                )
+            )
             if status == "Absent":
                 if folder[3] == "True":  ## Do not send a mail, 
                     continue
