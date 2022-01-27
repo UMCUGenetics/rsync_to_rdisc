@@ -171,14 +171,8 @@ if __name__ == "__main__":
         )
 
         if folder[2]: ## check if certain files need to be present in folder:
-            file_path = "{0}{1}/{2}".format(folder[0], run, folder[2])
-            status = subprocess.getoutput(
-                'ssh -q {user}@{server} [[ -f {file_path} ]] && echo "Present" || echo "Absent"'.format(
-                user=settings.user,
-                server=settings.server,
-                file_path=file_path
-                )
-            )
+            stdin, stdout, stderr = client.exec_command("[[ -f {0}{1}/{2}]] && echo \"Present\" || echo \"Absent\"".format(folder[0], run, folder[2]))
+            status = stdout.read().decode("utf8")
             if status == "Absent":
                 if folder[3] == "True":  ## Do not send a mail, 
                     continue
@@ -198,6 +192,8 @@ if __name__ == "__main__":
 
         if continue_rsync == True:
             rsync_and_check(action, run, to_be_transferred[run])
+
+    client.close()
 
     if remove_run_file == True:  # only remove run_file is transfer daemon shouldn't be blocked to prevent repeated mailing
         os.system("rm {}".format(run_file))
