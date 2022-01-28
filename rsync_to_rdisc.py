@@ -4,7 +4,6 @@ import os
 import subprocess
 import datetime
 from pwd import getpwuid
-from os.path import join, isfile, split
 
 from email import encoders
 from email.mime.multipart import MIMEMultipart
@@ -13,9 +12,10 @@ from email.mime.text import MIMEText
 import smtplib
 import mimetypes
 import socket
-from paramiko import SSHClient, AutoAddPolicy
+from paramiko import SSHClient
 
 import settings
+
 
 def find_owner(filename):
     return getpwuid(os.lstat(filename).st_uid).pw_name
@@ -23,7 +23,6 @@ def find_owner(filename):
 
 def make_mail(filename, state, reason=None, run_file=None):
     if state[0] == "lost":
-        email_to = [settings.owner_dic[item] for item in settings.owner_dic]
         subject = "ERROR: mount lost to BGarray for {}".format(socket.gethostname())
         text = "<html><body><p>Mount to BGarray is lost for {}</p></body></html>".format(socket.gethostname())
     elif state[0] == "ok":
@@ -34,11 +33,12 @@ def make_mail(filename, state, reason=None, run_file=None):
         text = "<html><body><p>Transfer to BGarray has not been completed for {}</p></body></html>".format(filename)
     elif state[0] == "notcomplete":
         subject = "Exome analysis not complete (no {0} file). Run = {1}!".format(reason, filename)
-        text = "<html><body><p> Data not transferred to BGarray. Run {0}</p><p>Remove {1} before datatransfer can be restarted</p></body></html>".format(filename, run_file)
+        text = ("<html><body><p> Data not transferred to BGarray. Run {0}</p>\
+            <p>Remove {1} before datatransfer can be restarted</p></body></html>".format(filename, run_file))
     elif state[0] == "settings":
         subject = "{}".format(reason)
-        text = "<html><body><p>Settings.py need to be fixed before datatransfer can resume!<\p><p>Remove {} before datatransfer can be restarted</p></body></html>".format(run_file)
-
+        text = ("<html><body><p>Settings.py need to be fixed before datatransfer can resume</p>\
+            <p>Remove {} before datatransfer can be restarted</p></body></html>".format(run_file))
     send_email(settings.email_from, settings.email_to, subject, text)
 
 
@@ -69,12 +69,12 @@ def send_email(sender, receivers, subject, text, attachment=None):
     m.quit()
 
 
-def rsync_and_check (action, run, folder):
+def rsync_and_check(action, run, folder):
     print("Rsync run:{}".format(run))
     os.system(action)
     error = subprocess.getoutput("wc -l {}".format(temperror))
     bgarray_log_file = "{bgarray}/{log}".format(bgarray=settings.bgarray, log=log)
-    if int(error.split()[0]) == 0: ## check if there are errors in de temporary error file. If so, do not include runid in transferred_runs.txt
+    if int(error.split()[0]) == 0:  # do not include run in transferred_runs.txt if errors in the temp error file.
         transferred_runs_file = "{wkdir}/transferred_runs.txt".format(wkdir=wkdir)
         with open(transferred_runs_file, 'a') as log_file:
             log_file.write("{run}_{folder}\n".format(run=run, folder=folder))
@@ -88,7 +88,8 @@ def rsync_and_check (action, run, folder):
         return "ok"
     else:
         with open(bgarray_log_file, 'a') as log_file:
-            log_file.write("\n>>>{run}_{folder} errors detected in Processed data transfer, not added to completed files <<<\n".format(run=run, folder=folder))
+            log_file.write("\n>>>{run}_{folder} errors detected in Processed data transfer, \
+                not added to completed files <<<\n".format(run=run, folder=folder))
         os.system(action)
         print("errors, check errorlog file")
         make_mail("{}/{}/{}".format(wkdir, folder, run), ["error"])
@@ -98,13 +99,12 @@ def rsync_and_check (action, run, folder):
 if __name__ == "__main__":
 
     """ Check if mount to BGarray intact """
-    if os.path.exists("{bgarray}".format(bgarray=settings.bgarray)) == True:
+    if os.path.exists("{bgarray}".format(bgarray=settings.bgarray)):
         pass
     else:
         print("Mount is lost.")
         make_mail("mount", ["lost"])
         sys.exit()
-   
 
     """ If daemon is running exit, else create transfer.running file and continue """
     wkdir = settings.wkdir
@@ -113,7 +113,6 @@ if __name__ == "__main__":
         sys.exit()
     else:
         os.system("touch {}".format(run_file))
-
 
     """ Make dictionairy of transferred_runs.txt file, or create transferred_runs.txt if not present """
     transferred_dic = {}
@@ -124,7 +123,6 @@ if __name__ == "__main__":
     else:
         new_file = open(str(wkdir) + "transferred_runs.txt", "w")
         new_file.close()
-
 
     """ Get folders to be transfer from HPC """
     client = SSHClient()
@@ -156,44 +154,47 @@ if __name__ == "__main__":
     for run in to_be_transferred:
         continue_rsync = True
         state = [""]
-        folder =  settings.folder_dic[to_be_transferred[run]]
+        folder = settings.folder_dic[to_be_transferred[run]]
 
-        action = "rsync -rahuL --stats {user}@{server}:{path}{run} {output}/ 1>> {bgarray}/{log} 2>> {bgarray}/{errorlog} 2> {temperror}".format(
-            user=settings.user,
-            server=settings.server,
-            path=folder[0],
-            run=run,
-            output=folder[1],
-            bgarray=settings.bgarray,
-            log=log,
-            errorlog=errorlog,
-            temperror=temperror
+        action = ("rsync -rahuL --stats {user}@{server}:{path}{run} {output}/ \
+            1>> {bgarray}/{log} 2>> {bgarray}/{errorlog} 2> {temperror}".format(
+                user=settings.user,
+                server=settings.server,
+                path=folder[0],
+                run=run,
+                output=folder[1],
+                bgarray=settings.bgarray,
+                log=log,
+                errorlog=errorlog,
+                temperror=temperror
+            )
         )
 
-        if folder[2]: ## check if certain files need to be present in folder:
-            stdin, stdout, stderr = client.exec_command("[[ -f {0}{1}/{2}]] && echo \"Present\" || echo \"Absent\"".format(folder[0], run, folder[2]))
+        if folder[2]:  # check if certain files need to be present in folder:
+            stdin, stdout, stderr = client.exec_command("[[ -f {0}{1}/{2}]] && echo \"Present\" \
+                || echo \"Absent\"".format(folder[0], run, folder[2]))
             status = stdout.read().decode("utf8")
             if status == "Absent":
-                if folder[3] == "True":  ## Do not send a mail, 
+                if folder[3] == "True":  # Do not send a mail
                     continue
-                elif folder[3] == "False":  ## Send a mail and lock datatransfer
+                elif folder[3] == "False":  # Send a mail and lock datatransfer
                     reason = "Exome analysis not complete (no {0} file). Run = {1}".format(folder[2], run)
                     make_mail(run, ["notcomplete"], reason, run_file)
                     continue_rsync = False
                     remove_run_file = False
-                else:  ## Send a mail and lock datatransfer
+                else:  # Send a mail and lock datatransfer
                     reason = "Unknown status {0} in settings.py for {1}".format(folder[3], folder)
                     make_mail(run, ["settings"], reason, run_file)
                     continue_rsync = False
                     remove_run_file = False
 
         with open(bgarray_log_file, 'a') as log_file:
-            log_file.write("\n#########\nDate: {date}\nRun_folder: {run}\n".format(date = date,  run = run))
+            log_file.write("\n#########\nDate: {date}\nRun_folder: {run}\n".format(date=date, run=run))
 
-        if continue_rsync == True:
+        if continue_rsync is True:
             rsync_and_check(action, run, to_be_transferred[run])
 
     client.close()
 
-    if remove_run_file == True:  # only remove run_file is transfer daemon shouldn't be blocked to prevent repeated mailing
+    if remove_run_file is True:  # only remove run_file is transfer daemon shouldn't be blocked to prevent repeated mailing
         os.system("rm {}".format(run_file))
