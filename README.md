@@ -1,6 +1,6 @@
 # Script for rsync between HPC and bgarray
 
-All script are made tested using Python 3.6.8
+All script are tested using Python 3.6.8
 
 ### Make virtual python enviroment
 ```bash
