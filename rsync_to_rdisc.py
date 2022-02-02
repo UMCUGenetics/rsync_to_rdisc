@@ -3,6 +3,7 @@ import sys
 import os
 import subprocess
 import datetime
+
 from pwd import getpwuid
 from email import encoders
 from email.mime.multipart import MIMEMultipart
@@ -16,25 +17,21 @@ from paramiko import SSHClient
 import settings
 
 
-def find_owner(filename):
-    return getpwuid(os.lstat(filename).st_uid).pw_name
-
-
 def make_mail(filename, state, reason=None, run_file=None):
-    if state[0] == "lost":
+    if state == "lost":
         subject = "ERROR: mount lost to BGarray for {}".format(socket.gethostname())
         text = "<html><body><p>Mount to BGarray is lost for {}</p></body></html>".format(socket.gethostname())
-    elif state[0] == "ok":
+    elif state == "ok":
         subject = "COMPLETED: Transfer to BGarray has succesfully completed for {}".format(filename)
         text = "<html><body><p>Transfer to BGarray has succesfully completed for {}</p></body></html>".format(filename)
-    elif state[0] == "error":
+    elif state == "error":
         subject = "ERROR: transfer to BGarray has not completed for {}".format(filename)
         text = "<html><body><p>Transfer to BGarray has not been completed for {}</p></body></html>".format(filename)
-    elif state[0] == "notcomplete":
+    elif state == "notcomplete":
         subject = "Exome analysis not complete (no {0} file). Run = {1}!".format(reason, filename)
         text = ("<html><body><p> Data not transferred to BGarray. Run {0}</p>\
             <p>Remove {1} before datatransfer can be restarted</p></body></html>".format(filename, run_file))
-    elif state[0] == "settings":
+    elif state == "settings":
         subject = "{}".format(reason)
         text = ("<html><body><p>Settings.py need to be fixed before datatransfer can resume</p>\
             <p>Remove {} before datatransfer can be restarted</p></body></html>".format(run_file))
@@ -83,7 +80,7 @@ def rsync_and_check(action, run, folder):
 
         os.system("rm {}".format(temperror))
         print("no errors")
-        make_mail("{}/{}/{}".format(wkdir, folder, run), ["ok"])
+        make_mail("{}/{}/{}".format(wkdir, folder, run), "ok")
         return "ok"
     else:
         with open(bgarray_log_file, 'a') as log_file:
@@ -91,7 +88,7 @@ def rsync_and_check(action, run, folder):
                 not added to completed files <<<\n".format(run=run, folder=folder))
         os.system(action)
         print("errors, check errorlog file")
-        make_mail("{}/{}/{}".format(wkdir, folder, run), ["error"])
+        make_mail("{}/{}/{}".format(wkdir, folder, run), "error")
         return "error"
 
 
@@ -102,7 +99,7 @@ if __name__ == "__main__":
         pass
     else:
         print("Mount is lost.")
-        make_mail("mount", ["lost"])
+        make_mail("mount", "lost")
         sys.exit()
 
     """ If daemon is running exit, else create transfer.running file and continue """
@@ -152,7 +149,6 @@ if __name__ == "__main__":
 
     for run in to_be_transferred:
         continue_rsync = True
-        state = [""]
         folder = settings.folder_dic[to_be_transferred[run]]
 
         action = ("rsync -rahuL --stats {user}@{server}:{path}{run} {output}/ \
@@ -178,12 +174,12 @@ if __name__ == "__main__":
                     continue
                 elif folder[3] == "False":  # Send a mail and lock datatransfer
                     reason = "Exome analysis not complete (no {0} file). Run = {1}".format(folder[2], run)
-                    make_mail(run, ["notcomplete"], reason, run_file)
+                    make_mail(run, "notcomplete", reason, run_file)
                     continue_rsync = False
                     remove_run_file = False
                 else:  # Send a mail and lock datatransfer
                     reason = "Unknown status {0} in settings.py for {1}".format(folder[3], folder)
-                    make_mail(run, ["settings"], reason, run_file)
+                    make_mail(run, "settings", reason, run_file)
                     continue_rsync = False
                     remove_run_file = False
 
