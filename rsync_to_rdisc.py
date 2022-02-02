@@ -168,28 +168,32 @@ if __name__ == "__main__":
             )
         )
 
-        missing = False
+        missing = []
         for check_file in folder["files_required"]:
             if check_file:
                 stdin, stdout, stderr = client.exec_command((
                     "[[ -f {0}{1}/{2} ]] && echo \"Present\" "
                     "|| echo \"Absent\""
                 ).format(folder["input"], run, check_file))
-
                 status = stdout.read().decode("utf8").rstrip()
                 if status == "Absent":
-                    missing = True
+                    missing.append(check_file)
 
-        if missing == True:
+        if missing:
             if folder["continue_without_email"] == "True":  # Do not send a mail
                 continue
             elif folder["continue_without_email"] == "False":  # Send a mail and lock datatransfer
-                reason = "Exome analysis not complete (file(s) {0} missing). Run = {1} in folder {2} ".format(" or ".join(folder["files_required"]), run, to_be_transferred[run])
+                reason = (
+                    "Analysis not complete (file(s) {0} missing). "
+                    "Run = {1} in folder {2} "
+                .format(" and ".join(missing), run, to_be_transferred[run]))
                 make_mail(run, "notcomplete", reason, run_file)
                 continue_rsync = False
                 remove_run_file = False
             else:  # Send a mail and lock datatransfer
-                reason = "Unknown status {0} in settings.py for {1}".format(folder["continue_without_email"], folder)
+                reason = (
+                    "Unknown status {0} in settings.py for {1}")
+.format(folder["continue_without_email"], folder)
                 make_mail(run, "settings", reason, run_file)
                 continue_rsync = False
                 remove_run_file = False
@@ -197,7 +201,7 @@ if __name__ == "__main__":
         with open(bgarray_log_file, 'a') as log_file:
             log_file.write("\n#########\nDate: {date}\nRun_folder: {run}\n".format(date=date, run=run))
 
-        if continue_rsync is True:
+        if continue_rsync:
             rsync_and_check(action, run, to_be_transferred[run], temperror, wkdir)
 
     client.close()
