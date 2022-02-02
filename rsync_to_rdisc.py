@@ -4,7 +4,6 @@ import os
 import subprocess
 import datetime
 
-from pwd import getpwuid
 from email import encoders
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
@@ -185,15 +184,12 @@ if __name__ == "__main__":
             elif folder["continue_without_email"] == "False":  # Send a mail and lock datatransfer
                 reason = (
                     "Analysis not complete (file(s) {0} missing). "
-                    "Run = {1} in folder {2} "
-                .format(" and ".join(missing), run, to_be_transferred[run]))
+                    "Run = {1} in folder {2} ".format(" and ".join(missing), run, to_be_transferred[run]))
                 make_mail(run, "notcomplete", reason, run_file)
                 continue_rsync = False
                 remove_run_file = False
             else:  # Send a mail and lock datatransfer
-                reason = (
-                    "Unknown status {0} in settings.py for {1}")
-.format(folder["continue_without_email"], folder)
+                reason = ("Unknown status {0} in settings.py for {1}").format(folder["continue_without_email"], folder)
                 make_mail(run, "settings", reason, run_file)
                 continue_rsync = False
                 remove_run_file = False
