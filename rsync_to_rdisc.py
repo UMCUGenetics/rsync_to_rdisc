@@ -179,9 +179,11 @@ if __name__ == "__main__":
                     missing.append(check_file)
 
         if missing:
-            if folder["continue_without_email"] == "True":  # Do not send a mail
+            if 'continue_without_email' in folder and folder["continue_without_email"]:
+                # Do not send a mail
                 continue
-            elif folder["continue_without_email"] == "False":  # Send a mail and lock datatransfer
+            elif 'continue_without_email' in folder and not folder["continue_without_email"]:
+                # Send a mail and lock datatransfer
                 reason = (
                     "Analysis not complete (file(s) {0} missing). "
                     "Run = {1} in folder {2} ".format(" and ".join(missing), run, to_be_transferred[run]))
