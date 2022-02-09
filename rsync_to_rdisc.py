@@ -17,12 +17,14 @@ import settings
 
 
 def make_mail(filename, state, reason=None, run_file=None):
-    if state == "lost":
+    if state == "lost_mount":
         subject = "ERROR: mount lost to BGarray for {}".format(socket.gethostname())
-        text = "<html><body><p>Mount to BGarray is lost for {}</p></body></html>".format(socket.gethostname())
+        text = ("<html><body><p>Mount to BGarray is lost for {0}</p>\
+           <p>Remove {1} before datatransfer can be restarted</p></body></html>".format(socket.gethostname(), run_file))
     elif state == "lost_hpc":
         subject = "ERROR: mount lost to HPC for {}".format(filename)
-        text = "<html><body><p>Mount to HPC transfer servers are lost for {}</p></body></html>".format(filename)
+        text = ("<html><body><p>Connection to HPC transfernodes {0} are lost</p>\
+         <p>Remove {1} before datatransfer can be restarted</p></body></html>".format(filename, run_file))
     elif state == "ok":
         subject = "COMPLETED: Transfer to BGarray has succesfully completed for {}".format(filename)
         text = "<html><body><p>Transfer to BGarray has succesfully completed for {}</p></body></html>".format(filename)
@@ -112,7 +114,7 @@ if __name__ == "__main__":
         pass
     else:
         print("Mount is lost.")
-        make_mail("mount", "lost")
+        make_mail("mount", "lost_mount", run_file)
         sys.exit()
 
     """ Make dictionairy of transferred_runs.txt file, or create transferred_runs.txt if not present """
@@ -138,8 +140,8 @@ if __name__ == "__main__":
             client.connect(settings.server[1], username=settings.user)
             hpc_server = settings.server[1]
         except OSError:
-            make_mail(" and ".join(settings.server), "lost_hpc")
-            sys.exit("mount to HPC is lost")
+            make_mail(" and ".join(settings.server), "lost_hpc", run_file)
+            sys.exit("connection to HPC transfernodes are lost")
 
     to_be_transferred = {}
     folder_dic = settings.folder_dic
