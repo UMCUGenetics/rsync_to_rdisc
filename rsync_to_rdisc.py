@@ -20,6 +20,9 @@ def make_mail(filename, state, reason=None, run_file=None):
     if state == "lost":
         subject = "ERROR: mount lost to BGarray for {}".format(socket.gethostname())
         text = "<html><body><p>Mount to BGarray is lost for {}</p></body></html>".format(socket.gethostname())
+    elif state == "lost_hpc":
+        subject = "ERROR: mount lost to HPC for {}".format(filename)
+        text = "<html><body><p>Mount to HPC transfer servers are lost for {}</p></body></html>".format(filename)
     elif state == "ok":
         subject = "COMPLETED: Transfer to BGarray has succesfully completed for {}".format(filename)
         text = "<html><body><p>Transfer to BGarray has succesfully completed for {}</p></body></html>".format(filename)
@@ -96,14 +99,6 @@ def rsync_and_check(action, run, folder, temperror, wkdir):
 
 if __name__ == "__main__":
 
-    """ Check if mount to BGarray intact """
-    if os.path.exists("{bgarray}".format(bgarray=settings.bgarray)):
-        pass
-    else:
-        print("Mount is lost.")
-        make_mail("mount", "lost")
-        sys.exit()
-
     """ If daemon is running exit, else create transfer.running file and continue """
     wkdir = settings.wkdir
     run_file = "{}/transfer.running".format(wkdir)
@@ -111,6 +106,14 @@ if __name__ == "__main__":
         sys.exit()
     else:
         os.system("touch {}".format(run_file))
+
+    """ Check if mount to BGarray intact """
+    if os.path.exists("{bgarray}".format(bgarray=settings.bgarray)):
+        pass
+    else:
+        print("Mount is lost.")
+        make_mail("mount", "lost")
+        sys.exit()
 
     """ Make dictionairy of transferred_runs.txt file, or create transferred_runs.txt if not present """
     transferred_dic = {}
@@ -127,7 +130,14 @@ if __name__ == "__main__":
     client = SSHClient()
     client.load_host_keys(settings.host_keys)
     client.load_system_host_keys()
-    client.connect(settings.server, username=settings.user)
+    try:
+        client.connect(settings.server[0], username=settings.user)
+    except OSError:
+        try:
+            client.connect(settings.server[1], username=settings.user)
+        except OSError:
+            make_mail(" and ".join(settings.server), "lost_hpc")
+            sys.exit("mount to HPC is lost")
 
     to_be_transferred = {}
     folder_dic = settings.folder_dic
