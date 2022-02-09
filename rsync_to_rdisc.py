@@ -153,9 +153,6 @@ if __name__ == "__main__":
             if combined not in transferred_dic:
                 to_be_transferred[item.split()[-1]] = folder
 
-    for item in to_be_transferred:
-        print("{0} from {1} will be transfer to BGarray".format(item, to_be_transferred[item]))
-
     """Rsync folders from HPC to bgarray"""
     log = settings.log
     errorlog = settings.errorlog
