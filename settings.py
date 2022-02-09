@@ -10,7 +10,7 @@ bgarray = "/mnt/bgarray/"
 
 """ Server/user settings """
 host_keys = ""
-server = ""
+server = ["", ""]
 user = ""
 
 
