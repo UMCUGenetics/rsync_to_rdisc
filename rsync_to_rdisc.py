@@ -114,7 +114,7 @@ if __name__ == "__main__":
         pass
     else:
         print("Mount is lost.")
-        make_mail("mount", "lost_mount", run_file)
+        make_mail("mount", "lost_mount", run_file=run_file)
         sys.exit()
 
     """ Make dictionairy of transferred_runs.txt file, or create transferred_runs.txt if not present """
@@ -140,7 +140,7 @@ if __name__ == "__main__":
             client.connect(settings.server[1], username=settings.user)
             hpc_server = settings.server[1]
         except OSError:
-            make_mail(" and ".join(settings.server), "lost_hpc", run_file)
+            make_mail(" and ".join(settings.server), "lost_hpc", run_file=run_file)
             sys.exit("connection to HPC transfernodes are lost")
 
     to_be_transferred = {}
