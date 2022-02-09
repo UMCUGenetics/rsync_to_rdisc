@@ -140,7 +140,7 @@ if __name__ == "__main__":
                 to_be_transferred[item.split()[-1]] = folder
 
     for item in to_be_transferred:
-        print("{0} from {1} will be transfer to LABarray".format(item, to_be_transferred[item]))
+        print("{0} from {1} will be transfer to BGarray".format(item, to_be_transferred[item]))
 
     """Rsync folders from HPC to bgarray"""
     log = settings.log
