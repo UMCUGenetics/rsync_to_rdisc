@@ -82,7 +82,7 @@ def rsync_and_check(action, run, folder, temperror, wkdir):
 
         os.system("rm {}".format(temperror))
         print("no errors")
-        make_mail("{}/{}/{}".format(wkdir, folder, run), "ok")
+        make_mail("{}{}".format(folder_dic[folder]["input"], run), "ok")
         return "ok"
     else:
         with open(bgarray_log_file, 'a') as log_file:
@@ -93,7 +93,7 @@ def rsync_and_check(action, run, folder, temperror, wkdir):
 
         os.system(action)
         print("errors, check errorlog file")
-        make_mail("{}/{}/{}".format(wkdir, folder, run), "error")
+        make_mail("{}{}".format(folder_dic[folder]["input"], run), "error")
         return "error"
 
 
