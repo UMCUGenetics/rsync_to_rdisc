@@ -9,14 +9,14 @@ bgarray = "/mnt/bgarray/"
 
 
 """ Server/user settings """
-host_keys = ''
-server = ''
-user = ''
+host_keys = ""
+server = ""
+user = ""
 
 
 """Mail finished transfer"""
-email_from = ''
-email_to = ['', '']
+email_from = ""
+email_to = ["", ""]
 
 
 """ Transfer folders  """
