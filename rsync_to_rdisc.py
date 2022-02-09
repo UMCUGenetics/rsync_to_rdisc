@@ -22,7 +22,7 @@ def make_mail(filename, state, reason=None, run_file=None):
         text = ("<html><body><p>Mount to BGarray is lost for {0}</p>\
            <p>Remove {1} before datatransfer can be restarted</p></body></html>".format(socket.gethostname(), run_file))
     elif state == "lost_hpc":
-        subject = "ERROR: mount lost to HPC for {}".format(filename)
+        subject = "ERROR: Connection to HPC transfernodes {} are lost".format(filename)
         text = ("<html><body><p>Connection to HPC transfernodes {0} are lost</p>\
          <p>Remove {1} before datatransfer can be restarted</p></body></html>".format(filename, run_file))
     elif state == "ok":
