@@ -132,9 +132,11 @@ if __name__ == "__main__":
     client.load_system_host_keys()
     try:
         client.connect(settings.server[0], username=settings.user)
+        hpc_server = settings.server[0]
     except OSError:
         try:
             client.connect(settings.server[1], username=settings.user)
+            hpc_server = settings.server[1]
         except OSError:
             make_mail(" and ".join(settings.server), "lost_hpc")
             sys.exit("mount to HPC is lost")
@@ -166,7 +168,7 @@ if __name__ == "__main__":
         action = ("rsync -rahuL --stats {user}@{server}:{path}{run} {output}/ \
             1>> {bgarray}/{log} 2>> {bgarray}/{errorlog} 2> {temperror}".format(
                 user=settings.user,
-                server=settings.server,
+                server=hpc_server,
                 path=folder["input"],
                 run=run,
                 output=folder["output"],
