@@ -1,7 +1,6 @@
 #! /usr/bin/env python3
 import sys
 import os
-import subprocess
 import datetime
 
 from email import encoders
@@ -12,6 +11,7 @@ import smtplib
 import mimetypes
 import socket
 from paramiko import SSHClient
+from pathlib import Path
 
 import settings
 
@@ -69,12 +69,11 @@ def send_email(sender, receivers, subject, text, attachment=None):
     m.quit()
 
 
-def rsync_and_check(action, run, folder, temperror, wkdir):
+def rsync_and_check(action, run, folder, temperror, wkdir, folder_dic, log):
     print(f"Rsync run: {run}")
     os.system(action)
-    error = subprocess.getoutput("wc -l {}".format(temperror))
     bgarray_log_file = "{bgarray}/{log}".format(bgarray=settings.bgarray, log=log)
-    if int(error.split()[0]) == 0:  # do not include run in transferred_runs.txt if errors in the temp error file.
+    if int(Path(temperror).stat().st_size) == 0:  # do not include run in transferred_runs.txt if temp error file is not empty.
         transferred_runs_file = "{wkdir}/transferred_runs.txt".format(wkdir=wkdir)
         with open(transferred_runs_file, 'a') as log_file:
             log_file.write("{run}_{folder}\n".format(run=run, folder=folder))
@@ -99,27 +98,26 @@ def rsync_and_check(action, run, folder, temperror, wkdir):
         return "error"
 
 
-if __name__ == "__main__":
-
-    """ If daemon is running exit, else create transfer.running file and continue """
-    wkdir = settings.wkdir
+def check_daemon_running(wkdir):
     run_file = "{}/transfer.running".format(wkdir)
     if os.path.isfile(run_file):
         sys.exit()
     else:
         os.system("touch {}".format(run_file))
+        return run_file
 
-    """ Check if mount to BGarray intact """
-    if os.path.exists(settings.bgarray):
+
+def check_mount(bgarray, run_file):
+    if os.path.exists(bgarray):
         pass
     else:
         print("Mount is lost.")
         make_mail("mount", "lost_mount", run_file=run_file)
         sys.exit()
 
-    """ Make dictionairy of transferred_runs.txt file, or create transferred_runs.txt if not present """
-    transferred_dic = {}
 
+def make_dictionary_runs(wkdir):
+    transferred_dic = {}
     if os.path.isfile(str(wkdir) + "transferred_runs.txt"):
         with open("{}/transferred_runs.txt".format(wkdir), 'r') as runs:
             for line in runs:
@@ -128,23 +126,29 @@ if __name__ == "__main__":
         new_file = open(str(wkdir) + "transferred_runs.txt", "w")
         new_file.close()
 
-    """ Get folders to be transfer from HPC """
+    return transferred_dic
+
+
+def connect_to_remote_server(host_keys, server, user, run_file):
     client = SSHClient()
-    client.load_host_keys(settings.host_keys)
+    client.load_host_keys(host_keys)
     client.load_system_host_keys()
     try:
-        client.connect(settings.server[0], username=settings.user)
-        hpc_server = settings.server[0]
+        client.connect(server[0], username=user)
+        hpc_server = server[0]
     except OSError:
         try:
-            client.connect(settings.server[1], username=settings.user)
-            hpc_server = settings.server[1]
+            client.connect(server[1], username=user)
+            hpc_server = server[1]
         except OSError:
-            make_mail(" and ".join(settings.server), "lost_hpc", run_file=run_file)
+            make_mail(" and ".join(server), "lost_hpc", run_file=run_file)
             sys.exit("connection to HPC transfernodes are lost")
 
+    return client, hpc_server
+
+
+def get_folders_remote_server(client, folder_dic):
     to_be_transferred = {}
-    folder_dic = settings.folder_dic
     for folder in folder_dic:
         stdin, stdout, stderr = client.exec_command("ls {}".format(folder_dic[folder]["input"]))
         folders = stdout.read().decode("utf8")
@@ -153,17 +157,56 @@ if __name__ == "__main__":
             if combined not in transferred_dic:
                 to_be_transferred[item.split()[-1]] = folder
 
-    """Rsync folders from HPC to bgarray"""
-    log = settings.log
-    errorlog = settings.errorlog
-    temperror = settings.temperror
+    return to_be_transferred
+
+
+def check_if_file_missing(folder, client, run):
+    missing = []
+    for check_file in folder["files_required"]:
+        if check_file:
+            stdin, stdout, stderr = client.exec_command((
+                "[[ -f {0}{1}/{2} ]] && echo \"Present\" "
+                "|| echo \"Absent\""
+            ).format(folder["input"], run, check_file))
+            status = stdout.read().decode("utf8").rstrip()
+            if status == "Absent":
+                missing.append(check_file)
+    return missing
+
+
+def action_if_file_missing(folder, continue_rsync, remove_run_file, missing, run):
+    if 'continue_without_email' in folder and folder["continue_without_email"]:
+        # Do not send a mail
+        pass
+    elif 'continue_without_email' in folder and not folder["continue_without_email"]:
+        # Send a mail and lock datatransfer
+        reason = (
+            "Analysis not complete (file(s) {0} missing). "
+            "Run = {1} in folder {2} ".format(" and ".join(missing), run, to_be_transferred[run]))
+        make_mail(run, "notcomplete", reason, run_file)
+        continue_rsync = False
+        remove_run_file = False
+    else:  # Send a mail and lock datatransfer
+        reason = ("Unknown status {0} in settings.py for {1}").format(folder["continue_without_email"], folder)
+        make_mail(run, "settings", reason, run_file)
+        continue_rsync = False
+        remove_run_file = False
+
+    return continue_rsync, remove_run_file
+
+
+def rsync_server_remote(settings, hpc_server, client, to_be_transferred):
     date = str(datetime.datetime.now()).split(".")[0]
-    bgarray_log_file = "{bgarray}/{log}".format(bgarray=settings.bgarray, log=log)
+    bgarray_log_file = "{bgarray}/{log}".format(bgarray=settings.bgarray, log=settings.log)
     remove_run_file = True
+
+    temperror = settings.temperror
+    folder_dic = settings.folder_dic
+    log = settings.log
 
     for run in to_be_transferred:
         continue_rsync = True
-        folder = settings.folder_dic[to_be_transferred[run]]
+        folder = folder_dic[to_be_transferred[run]]
         action = ("rsync -rahuL --stats {user}@{server}:{path}{run} {output}/ \
             1>> {bgarray}/{log} 2>> {bgarray}/{errorlog} 2> {temperror}".format(
                 user=settings.user,
@@ -173,47 +216,49 @@ if __name__ == "__main__":
                 output=folder["output"],
                 bgarray=settings.bgarray,
                 log=log,
-                errorlog=errorlog,
+                errorlog=settings.errorlog,
                 temperror=temperror
             )
         )
 
-        missing = []
-        for check_file in folder["files_required"]:
-            if check_file:
-                stdin, stdout, stderr = client.exec_command((
-                    "[[ -f {0}{1}/{2} ]] && echo \"Present\" "
-                    "|| echo \"Absent\""
-                ).format(folder["input"], run, check_file))
-                status = stdout.read().decode("utf8").rstrip()
-                if status == "Absent":
-                    missing.append(check_file)
+        missing = check_if_file_missing(folder, client, run)
 
         if missing:
-            if 'continue_without_email' in folder and folder["continue_without_email"]:
-                # Do not send a mail
-                continue
-            elif 'continue_without_email' in folder and not folder["continue_without_email"]:
-                # Send a mail and lock datatransfer
-                reason = (
-                    "Analysis not complete (file(s) {0} missing). "
-                    "Run = {1} in folder {2} ".format(" and ".join(missing), run, to_be_transferred[run]))
-                make_mail(run, "notcomplete", reason, run_file)
-                continue_rsync = False
-                remove_run_file = False
-            else:  # Send a mail and lock datatransfer
-                reason = ("Unknown status {0} in settings.py for {1}").format(folder["continue_without_email"], folder)
-                make_mail(run, "settings", reason, run_file)
-                continue_rsync = False
-                remove_run_file = False
+            continue_rsync, remove_run_file = action_if_file_missing(folder, continue_rsync, remove_run_file, missing, run)
 
         with open(bgarray_log_file, 'a') as log_file:
             log_file.write("\n#########\nDate: {date}\nRun_folder: {run}\n".format(date=date, run=run))
 
         if continue_rsync:
-            rsync_and_check(action, run, to_be_transferred[run], temperror, wkdir)
+            rsync_and_check(action, run, to_be_transferred[run], temperror, settings.wkdir, folder_dic, log)
+
+    return remove_run_file
+
+
+def delete_run_file(remove_run_file, run_file):
+    if remove_run_file:
+        os.system("rm {}".format(run_file))
+
+
+if __name__ == "__main__":
+
+    """ If daemon is running exit, else create transfer.running file and continue """
+    run_file = check_daemon_running(settings.wkdir)
+
+    """ Check if mount to BGarray intact """
+    check_mount(settings.bgarray, run_file)
+
+    """ Make dictionairy of transferred_runs.txt file, or create transferred_runs.txt if not present """
+    transferred_dic = make_dictionary_runs(settings.wkdir)
+
+    """ Get folders to be transfer from HPC """
+    client, hpc_server = connect_to_remote_server(settings.host_keys, settings.server, settings.user, run_file)
+    to_be_transferred = get_folders_remote_server(client, settings.folder_dic)
+
+    """Rsync folders from HPC to bgarray"""
+    remove_run_file = rsync_server_remote(settings, hpc_server, client, to_be_transferred)
+
+    """ Remove run_file is transfer daemon shouldn't be blocked to prevent repeated mailing """
+    delete_run_file(remove_run_file, run_file)
 
     client.close()
-
-    if remove_run_file:  # only remove run_file is transfer daemon shouldn't be blocked to prevent repeated mailing
-        os.system("rm {}".format(run_file))
