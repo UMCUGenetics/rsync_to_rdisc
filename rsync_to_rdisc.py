@@ -70,7 +70,7 @@ def send_email(sender, receivers, subject, text, attachment=None):
 
 
 def rsync_and_check(action, run, folder, temperror, wkdir):
-    print("Rsync run:{}".format(run))
+    print(f"Rsync run: {run}")
     os.system(action)
     error = subprocess.getoutput("wc -l {}".format(temperror))
     bgarray_log_file = "{bgarray}/{log}".format(bgarray=settings.bgarray, log=log)
@@ -110,7 +110,7 @@ if __name__ == "__main__":
         os.system("touch {}".format(run_file))
 
     """ Check if mount to BGarray intact """
-    if os.path.exists("{bgarray}".format(bgarray=settings.bgarray)):
+    if os.path.exists(settings.bgarray):
         pass
     else:
         print("Mount is lost.")
@@ -215,5 +215,5 @@ if __name__ == "__main__":
 
     client.close()
 
-    if remove_run_file is True:  # only remove run_file is transfer daemon shouldn't be blocked to prevent repeated mailing
+    if remove_run_file:  # only remove run_file is transfer daemon shouldn't be blocked to prevent repeated mailing
         os.system("rm {}".format(run_file))
