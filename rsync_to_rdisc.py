@@ -194,7 +194,7 @@ def action_if_file_missing(folder, remove_run_file, missing, run):
         make_mail(run, "settings", reason, run_file)
         remove_run_file = False
 
-    return False, remove_run_file
+    return remove_run_file
 
 
 def rsync_server_remote(settings, hpc_server, client, to_be_transferred):
@@ -227,7 +227,8 @@ def rsync_server_remote(settings, hpc_server, client, to_be_transferred):
         missing = check_if_file_missing(folder, client, run)
 
         if missing:
-            continue_rsync, remove_run_file = action_if_file_missing(folder, remove_run_file, missing, run)
+            continue_rsync = False
+            remove_run_file = action_if_file_missing(folder, remove_run_file, missing, run)
 
         with open(bgarray_log_file, 'a') as log_file:
             log_file.write("\n#########\nDate: {date}\nRun_folder: {run}\n".format(date=date, run=run))
