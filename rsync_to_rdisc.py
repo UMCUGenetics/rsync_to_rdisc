@@ -19,12 +19,16 @@ import settings
 def make_mail(filename, state, reason=None, run_file=None):
     if state == "lost_mount":
         subject = "ERROR: mount lost to BGarray for {}".format(socket.gethostname())
-        text = ("<html><body><p>Mount to BGarray is lost for {0}</p>"
-                "<p>Remove {1} before datatransfer can be restarted</p></body></html>".format(socket.gethostname(), run_file))
+        text = (
+            "<html><body><p>Mount to BGarray is lost for {0}</p>"
+            "<p>Remove {1} before datatransfer can be restarted</p></body></html>"
+        ).format(socket.gethostname(), run_file)
     elif state == "lost_hpc":
         subject = "ERROR: Connection to HPC transfernodes {} are lost".format(filename)
-        text = ("<html><body><p>Connection to HPC transfernodes {0} are lost</p>"
-                "<p>Remove {1} before datatransfer can be restarted</p></body></html>".format(filename, run_file))
+        text = (
+            "<html><body><p>Connection to HPC transfernodes {0} are lost</p>"
+            "<p>Remove {1} before datatransfer can be restarted</p></body></html>"
+        ).format(filename, run_file)
     elif state == "ok":
         subject = "COMPLETED: Transfer to BGarray has succesfully completed for {}".format(filename)
         text = "<html><body><p>Transfer to BGarray has succesfully completed for {}</p></body></html>".format(filename)
@@ -87,10 +91,10 @@ def rsync_and_check(action, run, folder, temperror, wkdir, folder_dic, log):
         return "ok"
     else:
         with open(bgarray_log_file, 'a') as log_file:
-            log_file.write((
+            log_file.write(
                 "\n>>>{run}_{folder} errors detected in Processed data transfer, "
                 "not added to completed files <<<\n"
-            ).format(run=run, folder=folder))
+            ).format(run=run, folder=folder)
 
         os.system(action)
         print("errors, check errorlog file")
@@ -207,18 +211,19 @@ def rsync_server_remote(settings, hpc_server, client, to_be_transferred):
     for run in to_be_transferred:
         continue_rsync = True
         folder = folder_dic[to_be_transferred[run]]
-        action = ("rsync -rahuL --stats {user}@{server}:{path}{run} {output}/ \
-            1>> {bgarray}/{log} 2>> {bgarray}/{errorlog} 2> {temperror}".format(
-                user=settings.user,
-                server=hpc_server,
-                path=folder["input"],
-                run=run,
-                output=folder["output"],
-                bgarray=settings.bgarray,
-                log=log,
-                errorlog=settings.errorlog,
-                temperror=temperror
-            )
+        action = (
+            "rsync -rahuL --stats {user}@{server}:{path}{run} {output}/ "
+            " 1>> {bgarray}/{log} 2>> {bgarray}/{errorlog} 2> {temperror}"
+        ).format(
+            user=settings.user,
+            server=hpc_server,
+            path=folder["input"],
+            run=run,
+            output=folder["output"],
+            bgarray=settings.bgarray,
+            log=log,
+            errorlog=settings.errorlog,
+            temperror=temperror
         )
 
         missing = check_if_file_missing(folder, client, run)
@@ -233,11 +238,6 @@ def rsync_server_remote(settings, hpc_server, client, to_be_transferred):
             rsync_and_check(action, run, to_be_transferred[run], temperror, settings.wkdir, folder_dic, log)
 
     return remove_run_file
-
-
-def delete_run_file(remove_run_file, run_file):
-    if remove_run_file:
-        os.system("rm {}".format(run_file))
 
 
 if __name__ == "__main__":
@@ -259,6 +259,7 @@ if __name__ == "__main__":
     remove_run_file = rsync_server_remote(settings, hpc_server, client, to_be_transferred)
 
     """ Remove run_file is transfer daemon shouldn't be blocked to prevent repeated mailing """
-    delete_run_file(remove_run_file, run_file)
+    if remove_run_file:
+        os.remove(run_file)
 
     client.close()
