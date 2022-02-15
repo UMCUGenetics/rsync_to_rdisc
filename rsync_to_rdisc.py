@@ -178,9 +178,9 @@ def check_if_file_missing(folder, client, run):
     return missing
 
 
-def action_if_file_missing(folder, continue_rsync, remove_run_file, missing, run):
+def action_if_file_missing(folder, remove_run_file, missing, run):
     if 'continue_without_email' in folder and folder["continue_without_email"]:
-        # Do not send a mail
+        # Do not send a mail and do not lock datatransfer
         pass
     elif 'continue_without_email' in folder and not folder["continue_without_email"]:
         # Send a mail and lock datatransfer
@@ -188,15 +188,13 @@ def action_if_file_missing(folder, continue_rsync, remove_run_file, missing, run
             "Analysis not complete (file(s) {0} missing). "
             "Run = {1} in folder {2} ".format(" and ".join(missing), run, to_be_transferred[run]))
         make_mail(run, "notcomplete", reason, run_file)
-        continue_rsync = False
         remove_run_file = False
     else:  # Send a mail and lock datatransfer
         reason = ("Unknown status {0} in settings.py for {1}").format(folder["continue_without_email"], folder)
         make_mail(run, "settings", reason, run_file)
-        continue_rsync = False
         remove_run_file = False
 
-    return continue_rsync, remove_run_file
+    return False, remove_run_file
 
 
 def rsync_server_remote(settings, hpc_server, client, to_be_transferred):
@@ -229,7 +227,7 @@ def rsync_server_remote(settings, hpc_server, client, to_be_transferred):
         missing = check_if_file_missing(folder, client, run)
 
         if missing:
-            continue_rsync, remove_run_file = action_if_file_missing(folder, continue_rsync, remove_run_file, missing, run)
+            continue_rsync, remove_run_file = action_if_file_missing(folder, remove_run_file, missing, run)
 
         with open(bgarray_log_file, 'a') as log_file:
             log_file.write("\n#########\nDate: {date}\nRun_folder: {run}\n".format(date=date, run=run))
