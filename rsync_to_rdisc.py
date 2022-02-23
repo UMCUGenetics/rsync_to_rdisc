@@ -91,10 +91,10 @@ def rsync_and_check(action, run, folder, temperror, wkdir, folder_dic, log):
         return "ok"
     else:
         with open(bgarray_log_file, 'a') as log_file:
-            log_file.write(
+            log_file.write((
                 "\n>>>{run}_{folder} errors detected in Processed data transfer, "
                 "not added to completed files <<<\n"
-            ).format(run=run, folder=folder)
+            ).format(run=run, folder=folder))
 
         os.system(action)
         print("errors, check errorlog file")
