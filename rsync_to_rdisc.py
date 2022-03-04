@@ -236,7 +236,7 @@ def rsync_server_remote(settings, hpc_server, client, to_be_transferred):
 
         if continue_rsync:
             rsync_result = rsync_and_check(action, run, to_be_transferred[run], temperror, settings.wkdir, folder_dic, log)
-            if rsync_result == "ok" and folder_dic['upload_gatk_vcf']:
+            if rsync_result == "ok" and folder['upload_gatk_vcf']:
                 upload_gatk_vcf(run, "{output}/{run}".format(output=folder["output"], run=run))
 
     return remove_run_file
