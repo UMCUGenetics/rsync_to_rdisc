@@ -2,6 +2,7 @@
 import sys
 import os
 import datetime
+import glob
 
 from email import encoders
 from email.mime.multipart import MIMEMultipart
@@ -234,9 +235,18 @@ def rsync_server_remote(settings, hpc_server, client, to_be_transferred):
             log_file.write("\n#########\nDate: {date}\nRun_folder: {run}\n".format(date=date, run=run))
 
         if continue_rsync:
-            rsync_and_check(action, run, to_be_transferred[run], temperror, settings.wkdir, folder_dic, log)
+            rsync_result = rsync_and_check(action, run, to_be_transferred[run], temperror, settings.wkdir, folder_dic, log)
+            if rsync_result == "ok" and folder_dic['upload_gatk_vcf']:
+                upload_gatk_vcf(run, "{output}/{run}".format(output=folder["output"], run=run))
 
     return remove_run_file
+
+
+def upload_gatk_vcf(run, run_folder):
+    print(run_folder)
+
+    for vcf_file in glob.iglob("{}/single_sample_vcf/*.vcf".format(run_folder)):
+        print(f"python vcf_upload.py {vcf_file} VCF_FILE {run}")
 
 
 if __name__ == "__main__":
@@ -257,7 +267,7 @@ if __name__ == "__main__":
     """Rsync folders from HPC to bgarray"""
     remove_run_file = rsync_server_remote(settings, hpc_server, client, to_be_transferred)
 
-    """ Remove run_file is transfer daemon shouldn't be blocked to prevent repeated mailing """
+    """ Remove run_file if transfer daemon shouldn't be blocked to prevent repeated mailing """
     if remove_run_file:
         os.remove(run_file)
 
