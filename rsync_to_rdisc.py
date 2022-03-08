@@ -19,7 +19,7 @@ from jinja2 import Environment, FileSystemLoader
 import settings
 
 
-def make_mail(filename, state, reason=None, run_file=None):
+def make_mail(filename, state, reason=None, run_file=None, upload_result_gatk=None, upload_result_exomedepth=None):
     env = Environment(loader=FileSystemLoader("templates"))
 
     if state == "lost_mount":
@@ -34,7 +34,11 @@ def make_mail(filename, state, reason=None, run_file=None):
     elif state == "ok":
         subject = "COMPLETED: Transfer to BGarray has succesfully completed for {}".format(filename)
         template = env.get_template("transfer_ok.html")
-        text = template.render(filename=filename)
+        text = template.render(
+            filename=filename,
+            upload_result_gatk=upload_result_gatk,
+            upload_result_exomedepth=upload_result_exomedepth
+        )
     elif state == "error":
         subject = "ERROR: transfer to BGarray has not completed for {}".format(filename)
         template = env.get_template("transfer_error.html")
@@ -240,9 +244,9 @@ def rsync_server_remote(settings, hpc_server, client, to_be_transferred):
             rsync_result = rsync_and_check(action, run, to_be_transferred[run], temperror, settings.wkdir, folder_dic, log)
             if rsync_result == "ok":
                 if folder['upload_gatk_vcf']:
-                    upload_gatk_vcf(run, "{output}/{run}".format(output=folder["output"], run=run))
+                    upload_result_gatk = upload_gatk_vcf(run, "{output}/{run}".format(output=folder["output"], run=run))
                 if folder['upload_exomedepth_vcf']:
-                    upload_exomedepth_vcf(run, "{output}/{run}".format(output=folder["output"], run=run))
+                    upload_result_exomedepth = upload_exomedepth_vcf(run, "{output}/{run}".format(output=folder["output"], run=run))
                 make_mail("{}{}".format(folder["input"], run), "ok")
 
     return remove_run_file
@@ -260,15 +264,18 @@ def run_vcf_upload(vcf_file, vcf_type, run):
 
 def upload_gatk_vcf(run, run_folder):
     run = '_'.join(run.split('_')[:4])  # remove projects from run.
+    upload_result = []
     for vcf_file in glob.iglob("{}/single_sample_vcf/*.vcf".format(run_folder)):
         output_vcf_upload = run_vcf_upload(vcf_file, 'VCF_FILE', run)
         if output_vcf_upload:
-            print(output_vcf_upload)
+            upload_result.append(output_vcf_upload)
+    return upload_result
 
 
 def upload_exomedepth_vcf(run, run_folder):
     # Parse <run>_exomedepth_summary.txt
     cnv_samples = {}
+    upload_result = []
     vcf_files = glob.glob("{}/exomedepth/HC/*.vcf".format(run_folder))
     with open(f'{run_folder}/QC/CNV/{run}_exomedepth_summary.txt') as exomedepth_summary:
         for line in exomedepth_summary:
@@ -296,7 +303,8 @@ def upload_exomedepth_vcf(run, run_folder):
             # print(f"python vcf_upload.py {vcf_file} 'UMCU CNV VCF v1' {run}")
             output_vcf_upload = run_vcf_upload(vcf_file, 'UMCU CNV VCF v1', run)
             if output_vcf_upload:
-                print(output_vcf_upload)
+                upload_result.append(output_vcf_upload)
+    return upload_result
 
 
 if __name__ == "__main__":
