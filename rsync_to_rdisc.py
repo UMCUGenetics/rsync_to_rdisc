@@ -253,13 +253,34 @@ def upload_gatk_vcf(run, run_folder):
 
 def upload_exomedepth_vcf(run, run_folder):
     print(run_folder)
-    run = '_'.join(run.split('_')[:4])  # remove projects from run.
 
-    # Parse QC/CNV/220223_A01131_0233_AH775MDMXY_5_exomedepth_summary.txt
-    # Look for warnings / DO_NOT_USE_MergeSample
+    # Parse <run>_exomedepth_summary.txt
+    cnv_samples = {}
+    vcf_files = glob.iglob("{}/exomedepth/HC/*.vcf".format(run_folder))
+    with open(f'{run_folder}/QC/CNV/{run}_exomedepth_summary.txt') as exomedepth_summary:
+        for line in exomedepth_summary:
+            line = line.strip()
+            # Skip empty or comment lines
+            if not line or line.startswith('#'):
+                continue
 
-    for vcf_file in glob.iglob("{}/exomedepth/HC/*.vcf".format(run_folder)):
-        print(f"python vcf_upload.py {vcf_file} 'UMCU CNV VCF v1' {run}")
+            # Parse sample
+            if 'WARNING' in line.upper():
+                warnings = line.split('\t')[1:]
+                sample = line.split(';')[0]
+            else:
+                warnings = ''
+                sample = line.split(';')[0]
+
+            cnv_samples[sample] = '\t'.join(warnings)
+
+    run = '_'.join(run.split('_')[:4])  # remove project from run.
+    for sample in cnv_samples:
+        if cnv_samples[sample]:
+            print(f"{sample} not uploaded\t{cnv_samples[sample]}")
+        else:
+            vcf_file = [vcf for vcf in vcf_files if sample in vcf][0]  # one vcf per sample
+            print(f"python vcf_upload.py {vcf_file} 'UMCU CNV VCF v1' {run}")
 
 
 if __name__ == "__main__":
