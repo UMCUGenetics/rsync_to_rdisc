@@ -243,11 +243,13 @@ def rsync_server_remote(settings, hpc_server, client, to_be_transferred):
         if continue_rsync:
             rsync_result = rsync_and_check(action, run, to_be_transferred[run], temperror, settings.wkdir, folder_dic, log)
             if rsync_result == "ok":
+                upload_result_gatk = None
+                upload_result_exomedepth = None
                 if folder['upload_gatk_vcf']:
                     upload_result_gatk = upload_gatk_vcf(run, "{output}/{run}".format(output=folder["output"], run=run))
                 if folder['upload_exomedepth_vcf']:
                     upload_result_exomedepth = upload_exomedepth_vcf(run, "{output}/{run}".format(output=folder["output"], run=run))
-                make_mail("{}{}".format(folder["input"], run), "ok")
+                make_mail("{}{}".format(folder["input"], run), "ok", upload_result_gatk, upload_result_exomedepth)
 
     return remove_run_file
 

@@ -1,7 +1,13 @@
 <html>
     <body>
         <p>Transfer to BGarray has succesfully completed for {{filename}}</p>
+        {% if upload_result_gatk %}
+        <b>Alissa upload GATK</b>
         <p>{{upload_result_gatk}}</p>
+        {% endif %}
+        {% if upload_result_exomedepth %}
+        <b>Alissa upload ExomeDepth</b>
         <p>{{upload_result_exomedepth}}</p>
+        {% endif %}
     </body>
 </html>
