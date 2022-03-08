@@ -14,37 +14,39 @@ import mimetypes
 import socket
 from paramiko import SSHClient
 from pathlib import Path
+from jinja2 import Environment, FileSystemLoader
 
 import settings
 
 
 def make_mail(filename, state, reason=None, run_file=None):
+    env = Environment(loader=FileSystemLoader("templates"))
+
     if state == "lost_mount":
-        subject = "ERROR: mount lost to BGarray for {}".format(socket.gethostname())
-        text = (
-            "<html><body><p>Mount to BGarray is lost for {0}</p>"
-            "<p>Remove {1} before datatransfer can be restarted</p></body></html>"
-        ).format(socket.gethostname(), run_file)
+        hostname = socket.gethostname()
+        subject = "ERROR: mount lost to BGarray for {}".format(hostname)
+        template = env.get_template("lost_mount.html")
+        text = template.render(hostname=hostname, run_file=run_file)
     elif state == "lost_hpc":
         subject = "ERROR: Connection to HPC transfernodes {} are lost".format(filename)
-        text = (
-            "<html><body><p>Connection to HPC transfernodes {0} are lost</p>"
-            "<p>Remove {1} before datatransfer can be restarted</p></body></html>"
-        ).format(filename, run_file)
+        template = env.get_template("lost_hpc.html")
+        text = template.render(filename=filename, run_file=run_file)
     elif state == "ok":
         subject = "COMPLETED: Transfer to BGarray has succesfully completed for {}".format(filename)
-        text = "<html><body><p>Transfer to BGarray has succesfully completed for {}</p></body></html>".format(filename)
+        template = env.get_template("transfer_ok.html")
+        text = template.render(filename=filename)
     elif state == "error":
         subject = "ERROR: transfer to BGarray has not completed for {}".format(filename)
-        text = "<html><body><p>Transfer to BGarray has not been completed for {}</p></body></html>".format(filename)
+        template = env.get_template("transfer_error.html")
+        text = template.render(filename=filename)
     elif state == "notcomplete":
         subject = reason
-        text = ("<html><body><p> Data not transferred to BGarray. Run {0}</p>"
-                "<p>Remove {1} before datatransfer can be restarted</p></body></html>".format(filename, run_file))
+        template = env.get_template("transfer_notcomplete.html")
+        text = template.render(filename=filename, run_file=run_file)
     elif state == "settings":
         subject = reason
-        text = ("<html><body><p>Settings.py need to be fixed before datatransfer can resume</p>"
-                "<p>Remove {} before datatransfer can be restarted</p></body></html>".format(run_file))
+        template = env.get_template("settings.html")
+        text = template.render(run_file=run_file)
     send_email(settings.email_from, settings.email_to, subject, text)
 
 
