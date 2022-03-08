@@ -256,7 +256,7 @@ def upload_exomedepth_vcf(run, run_folder):
 
     # Parse <run>_exomedepth_summary.txt
     cnv_samples = {}
-    vcf_files = glob.iglob("{}/exomedepth/HC/*.vcf".format(run_folder))
+    vcf_files = glob.glob("{}/exomedepth/HC/*.vcf".format(run_folder))
     with open(f'{run_folder}/QC/CNV/{run}_exomedepth_summary.txt') as exomedepth_summary:
         for line in exomedepth_summary:
             line = line.strip()
