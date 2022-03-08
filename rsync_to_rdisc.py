@@ -89,7 +89,6 @@ def rsync_and_check(action, run, folder, temperror, wkdir, folder_dic, log):
 
         os.system("rm {}".format(temperror))
         print("no errors")
-        make_mail("{}{}".format(folder_dic[folder]["input"], run), "ok")
         return "ok"
     else:
         with open(bgarray_log_file, 'a') as log_file:
@@ -237,10 +236,12 @@ def rsync_server_remote(settings, hpc_server, client, to_be_transferred):
 
         if continue_rsync:
             rsync_result = rsync_and_check(action, run, to_be_transferred[run], temperror, settings.wkdir, folder_dic, log)
-            if rsync_result == "ok" and folder['upload_gatk_vcf']:
-                upload_gatk_vcf(run, "{output}/{run}".format(output=folder["output"], run=run))
-            if rsync_result == "ok" and folder['upload_exomedepth_vcf']:
-                upload_exomedepth_vcf(run, "{output}/{run}".format(output=folder["output"], run=run))
+            if rsync_result == "ok":
+                if folder['upload_gatk_vcf']:
+                    upload_gatk_vcf(run, "{output}/{run}".format(output=folder["output"], run=run))
+                if folder['upload_exomedepth_vcf']:
+                    upload_exomedepth_vcf(run, "{output}/{run}".format(output=folder["output"], run=run))
+                make_mail("{}{}".format(folder_dic[folder]["input"], run), "ok")
 
     return remove_run_file
 
