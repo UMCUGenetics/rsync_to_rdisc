@@ -246,7 +246,6 @@ def rsync_server_remote(settings, hpc_server, client, to_be_transferred):
 
 
 def upload_gatk_vcf(run, run_folder):
-    print(run_folder)
     run = '_'.join(run.split('_')[:4])  # remove projects from run.
     for vcf_file in glob.iglob("{}/single_sample_vcf/*.vcf".format(run_folder)):
         # print(f"python vcf_upload.py {vcf_file} VCF_FILE {run}")
@@ -257,13 +256,12 @@ def upload_gatk_vcf(run, run_folder):
             stderr=subprocess.PIPE,
             encoding='UTF-8'
         )
+        print(upload_vcf)
         if upload_vcf.stdout:
             print(upload_vcf.stdout)
 
 
 def upload_exomedepth_vcf(run, run_folder):
-    print(run_folder)
-
     # Parse <run>_exomedepth_summary.txt
     cnv_samples = {}
     vcf_files = glob.glob("{}/exomedepth/HC/*.vcf".format(run_folder))
@@ -298,6 +296,7 @@ def upload_exomedepth_vcf(run, run_folder):
                 stderr=subprocess.PIPE,
                 encoding='UTF-8'
             )
+            print(upload_vcf)
             if upload_vcf.stdout:
                 print(upload_vcf.stdout)
 
