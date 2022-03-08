@@ -3,6 +3,7 @@ import sys
 import os
 import datetime
 import glob
+import subprocess
 
 from email import encoders
 from email.mime.multipart import MIMEMultipart
@@ -248,7 +249,15 @@ def upload_gatk_vcf(run, run_folder):
     print(run_folder)
     run = '_'.join(run.split('_')[:4])  # remove projects from run.
     for vcf_file in glob.iglob("{}/single_sample_vcf/*.vcf".format(run_folder)):
-        print(f"python vcf_upload.py {vcf_file} VCF_FILE {run}")
+        # print(f"python vcf_upload.py {vcf_file} VCF_FILE {run}")
+        upload_vcf = subprocess.run(
+            f"source {settings.alissa_vcf_upload}/venv/bin/activate & python {settings.alissa_vcf_upload}/vcf_upload.py {vcf_file} VCF_FILE {run}",
+            shell=True,
+            capture_output=True,
+            text=True
+        )
+        if upload_vcf.stdout:
+            print(upload_vcf.stdout)
 
 
 def upload_exomedepth_vcf(run, run_folder):
@@ -280,7 +289,15 @@ def upload_exomedepth_vcf(run, run_folder):
             print(f"{sample} not uploaded\t{cnv_samples[sample]}")
         else:
             vcf_file = [vcf for vcf in vcf_files if sample in vcf][0]  # one vcf per sample
-            print(f"python vcf_upload.py {vcf_file} 'UMCU CNV VCF v1' {run}")
+            # print(f"python vcf_upload.py {vcf_file} 'UMCU CNV VCF v1' {run}")
+            upload_vcf = subprocess.run(
+                f"source {settings.alissa_vcf_upload}/venv/bin/activate & python vcf_upload.py {vcf_file} 'UMCU CNV VCF v1' {run}",
+                shell=True,
+                capture_output=True,
+                text=True
+            )
+            if upload_vcf.stdout:
+                print(upload_vcf.stdout)
 
 
 if __name__ == "__main__":
