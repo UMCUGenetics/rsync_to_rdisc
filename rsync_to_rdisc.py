@@ -245,21 +245,22 @@ def rsync_server_remote(settings, hpc_server, client, to_be_transferred):
     return remove_run_file
 
 
+def run_vcf_upload(vcf_file, vcf_type, run):
+    upload_vcf = subprocess.run(
+            f"source {settings.alissa_vcf_upload}/venv/bin/activate && python {settings.alissa_vcf_upload}/vcf_upload.py {vcf_file} {vcf_type} {run}",
+            shell=True,
+            stdout=subprocess.PIPE,
+            encoding='UTF-8'
+        )
+    return upload_vcf.stdout.strip()
+
+
 def upload_gatk_vcf(run, run_folder):
     run = '_'.join(run.split('_')[:4])  # remove projects from run.
     for vcf_file in glob.iglob("{}/single_sample_vcf/*.vcf".format(run_folder)):
-        # print(f"python vcf_upload.py {vcf_file} VCF_FILE {run}")
-        upload_vcf = subprocess.run(
-            f"source {settings.alissa_vcf_upload}/venv/bin/activate && python {settings.alissa_vcf_upload}/vcf_upload.py {vcf_file} VCF_FILE {run}",
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            encoding='UTF-8'
-        )
-        if upload_vcf.stdout:
-            print(upload_vcf.stdout)
-        if upload_vcf.stderr:
-            print(upload_vcf.stderr)
+        output_vcf_upload = run_vcf_upload(vcf_file, 'VCF_FILE', run)
+        if output_vcf_upload:
+            print(output_vcf_upload)
 
 
 def upload_exomedepth_vcf(run, run_folder):
@@ -290,17 +291,9 @@ def upload_exomedepth_vcf(run, run_folder):
         else:
             vcf_file = [vcf for vcf in vcf_files if sample in vcf][0]  # one vcf per sample
             # print(f"python vcf_upload.py {vcf_file} 'UMCU CNV VCF v1' {run}")
-            upload_vcf = subprocess.run(
-                f"source {settings.alissa_vcf_upload}/venv/bin/activate && python {settings.alissa_vcf_upload}/vcf_upload.py {vcf_file} 'UMCU CNV VCF v1' {run}",
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                encoding='UTF-8'
-            )
-            if upload_vcf.stdout:
-                print(upload_vcf.stdout)
-            if upload_vcf.stderr:
-                print(upload_vcf.stderr)
+            output_vcf_upload = run_vcf_upload(vcf_file, 'UMCU CNV VCF v1', run)
+            if output_vcf_upload:
+                print(output_vcf_upload)
 
 
 if __name__ == "__main__":
