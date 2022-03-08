@@ -249,7 +249,9 @@ def rsync_server_remote(settings, hpc_server, client, to_be_transferred):
                     upload_result_gatk = upload_gatk_vcf(run, "{output}/{run}".format(output=folder["output"], run=run))
                 if folder['upload_exomedepth_vcf']:
                     upload_result_exomedepth = upload_exomedepth_vcf(run, "{output}/{run}".format(output=folder["output"], run=run))
-                make_mail("{}{}".format(folder["input"], run), "ok", upload_result_gatk, upload_result_exomedepth)
+                print(upload_result_gatk)
+                print(upload_result_exomedepth)
+                make_mail("{}{}".format(folder["input"], run), "ok", upload_result_gatk=upload_result_gatk, upload_result_exomedepth=upload_result_exomedepth)
 
     return remove_run_file
 
@@ -299,7 +301,7 @@ def upload_exomedepth_vcf(run, run_folder):
     run = '_'.join(run.split('_')[:4])  # remove project from run.
     for sample in cnv_samples:
         if cnv_samples[sample]:
-            print(f"{sample} not uploaded\t{cnv_samples[sample]}")
+            upload_result.append(f"{sample} not uploaded\t{cnv_samples[sample]}")
         else:
             vcf_file = [vcf for vcf in vcf_files if sample in vcf][0]  # one vcf per sample
             # print(f"python vcf_upload.py {vcf_file} 'UMCU CNV VCF v1' {run}")
