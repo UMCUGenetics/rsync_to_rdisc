@@ -247,7 +247,7 @@ def rsync_server_remote(settings, hpc_server, client, to_be_transferred):
 
 def run_vcf_upload(vcf_file, vcf_type, run):
     upload_vcf = subprocess.run(
-            f"source {settings.alissa_vcf_upload}/venv/bin/activate && python {settings.alissa_vcf_upload}/vcf_upload.py {vcf_file} {vcf_type} {run}",
+            f"source {settings.alissa_vcf_upload}/venv/bin/activate && python {settings.alissa_vcf_upload}/vcf_upload.py {vcf_file} '{vcf_type}' {run}",
             shell=True,
             stdout=subprocess.PIPE,
             encoding='UTF-8'
