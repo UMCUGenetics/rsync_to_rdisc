@@ -253,8 +253,9 @@ def upload_gatk_vcf(run, run_folder):
         upload_vcf = subprocess.run(
             f"source {settings.alissa_vcf_upload}/venv/bin/activate & python {settings.alissa_vcf_upload}/vcf_upload.py {vcf_file} VCF_FILE {run}",
             shell=True,
-            capture_output=True,
-            text=True
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            encoding='UTF-8'
         )
         if upload_vcf.stdout:
             print(upload_vcf.stdout)
@@ -293,8 +294,9 @@ def upload_exomedepth_vcf(run, run_folder):
             upload_vcf = subprocess.run(
                 f"source {settings.alissa_vcf_upload}/venv/bin/activate & python vcf_upload.py {vcf_file} 'UMCU CNV VCF v1' {run}",
                 shell=True,
-                capture_output=True,
-                text=True
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                encoding='UTF-8'
             )
             if upload_vcf.stdout:
                 print(upload_vcf.stdout)
