@@ -250,15 +250,16 @@ def upload_gatk_vcf(run, run_folder):
     for vcf_file in glob.iglob("{}/single_sample_vcf/*.vcf".format(run_folder)):
         # print(f"python vcf_upload.py {vcf_file} VCF_FILE {run}")
         upload_vcf = subprocess.run(
-            f"source {settings.alissa_vcf_upload}/venv/bin/activate & python {settings.alissa_vcf_upload}/vcf_upload.py {vcf_file} VCF_FILE {run}",
+            f"source {settings.alissa_vcf_upload}/venv/bin/activate && python {settings.alissa_vcf_upload}/vcf_upload.py {vcf_file} VCF_FILE {run}",
             shell=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             encoding='UTF-8'
         )
-        print(upload_vcf)
         if upload_vcf.stdout:
             print(upload_vcf.stdout)
+        if upload_vcf.stderr:
+            print(upload_vcf.stderr)
 
 
 def upload_exomedepth_vcf(run, run_folder):
@@ -290,15 +291,16 @@ def upload_exomedepth_vcf(run, run_folder):
             vcf_file = [vcf for vcf in vcf_files if sample in vcf][0]  # one vcf per sample
             # print(f"python vcf_upload.py {vcf_file} 'UMCU CNV VCF v1' {run}")
             upload_vcf = subprocess.run(
-                f"source {settings.alissa_vcf_upload}/venv/bin/activate & python vcf_upload.py {vcf_file} 'UMCU CNV VCF v1' {run}",
+                f"source {settings.alissa_vcf_upload}/venv/bin/activate && python {settings.alissa_vcf_upload}/vcf_upload.py {vcf_file} 'UMCU CNV VCF v1' {run}",
                 shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 encoding='UTF-8'
             )
-            print(upload_vcf)
             if upload_vcf.stdout:
                 print(upload_vcf.stdout)
+            if upload_vcf.stderr:
+                print(upload_vcf.stderr)
 
 
 if __name__ == "__main__":
