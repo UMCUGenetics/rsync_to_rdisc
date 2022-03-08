@@ -238,6 +238,8 @@ def rsync_server_remote(settings, hpc_server, client, to_be_transferred):
             rsync_result = rsync_and_check(action, run, to_be_transferred[run], temperror, settings.wkdir, folder_dic, log)
             if rsync_result == "ok" and folder['upload_gatk_vcf']:
                 upload_gatk_vcf(run, "{output}/{run}".format(output=folder["output"], run=run))
+            if rsync_result == "ok" and folder['upload_exomedepth_vcf']:
+                upload_exomedepth_vcf(run, "{output}/{run}".format(output=folder["output"], run=run))
 
     return remove_run_file
 
@@ -247,6 +249,17 @@ def upload_gatk_vcf(run, run_folder):
     run = '_'.join(run.split('_')[:4])  # remove projects from run.
     for vcf_file in glob.iglob("{}/single_sample_vcf/*.vcf".format(run_folder)):
         print(f"python vcf_upload.py {vcf_file} VCF_FILE {run}")
+
+
+def upload_exomedepth_vcf(run, run_folder):
+    print(run_folder)
+    run = '_'.join(run.split('_')[:4])  # remove projects from run.
+
+    # Parse QC/CNV/220223_A01131_0233_AH775MDMXY_5_exomedepth_summary.txt
+    # Look for warnings / DO_NOT_USE_MergeSample
+
+    for vcf_file in glob.iglob("{}/exomedepth/HC/*.vcf".format(run_folder)):
+        print(f"python vcf_upload.py {vcf_file} 'UMCU CNV VCF v1' {run}")
 
 
 if __name__ == "__main__":
