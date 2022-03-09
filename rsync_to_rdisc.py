@@ -246,9 +246,15 @@ def rsync_server_remote(settings, hpc_server, client, to_be_transferred):
                 upload_result_gatk = None
                 upload_result_exomedepth = None
                 if folder['upload_gatk_vcf']:
-                    upload_result_gatk = upload_gatk_vcf(run, "{output}/{run}".format(output=folder["output"], run=run))
+                    upload_result_gatk = upload_gatk_vcf(
+                        run=run,
+                        run_folder="{output}/{run}".format(output=folder["output"], run=run)
+                    )
                 if folder['upload_exomedepth_vcf']:
-                    upload_result_exomedepth = upload_exomedepth_vcf(run, "{output}/{run}".format(output=folder["output"], run=run))
+                    upload_result_exomedepth = upload_exomedepth_vcf(
+                        run=run,
+                        run_folder="{output}/{run}".format(output=folder["output"], run=run)
+                    )
                 make_mail(
                     filename="{}{}".format(folder["input"], run),
                     state="ok",
@@ -261,12 +267,17 @@ def rsync_server_remote(settings, hpc_server, client, to_be_transferred):
 
 def run_vcf_upload(vcf_file, vcf_type, run):
     upload_vcf = subprocess.run(
-            f"source {settings.alissa_vcf_upload}/venv/bin/activate && python {settings.alissa_vcf_upload}/vcf_upload.py {vcf_file} '{vcf_type}' {run}",
+            (
+                f"source {settings.alissa_vcf_upload}/venv/bin/activate && "
+                f"python {settings.alissa_vcf_upload}/vcf_upload.py {vcf_file} '{vcf_type}' {run}"
+            ),
             shell=True,
             stdout=subprocess.PIPE,
             encoding='UTF-8'
         )
-    return upload_vcf.stdout.strip().split('\n')
+    # Cleanup upload_vcf output: Strip and split on new line, remove empty strings from list
+    upload_vcf_out = list(filter(None, upload_vcf.stdout.strip().split('\n')))
+    return upload_vcf_out
 
 
 def upload_gatk_vcf(run, run_folder):
