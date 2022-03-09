@@ -3,11 +3,15 @@
         <p>Transfer to BGarray has succesfully completed for {{filename}}</p>
         {% if upload_result_gatk %}
         <b>Alissa upload GATK</b>
-        <p>{{upload_result_gatk}}</p>
+        {% for upload_result in upload_result_gatk %}
+            <p>{{upload_result}}</p>
+        {% endfor %}
         {% endif %}
         {% if upload_result_exomedepth %}
         <b>Alissa upload ExomeDepth</b>
-        <p>{{upload_result_exomedepth}}</p>
+        {% for upload_result in upload_result_exomedepth %}
+            <p>{{upload_result}}</p>
+        {% endfor %}
         {% endif %}
     </body>
 </html>
