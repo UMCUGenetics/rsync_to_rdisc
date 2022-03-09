@@ -266,7 +266,7 @@ def run_vcf_upload(vcf_file, vcf_type, run):
             stdout=subprocess.PIPE,
             encoding='UTF-8'
         )
-    return upload_vcf.stdout.strip()
+    return upload_vcf.stdout.strip().split('\n')
 
 
 def upload_gatk_vcf(run, run_folder):
@@ -275,7 +275,7 @@ def upload_gatk_vcf(run, run_folder):
     for vcf_file in glob.iglob("{}/single_sample_vcf/*.vcf".format(run_folder)):
         output_vcf_upload = run_vcf_upload(vcf_file, 'VCF_FILE', run)
         if output_vcf_upload:
-            upload_result.append(output_vcf_upload)
+            upload_result.extend(output_vcf_upload)
     return upload_result
 
 
@@ -310,7 +310,7 @@ def upload_exomedepth_vcf(run, run_folder):
             # print(f"python vcf_upload.py {vcf_file} 'UMCU CNV VCF v1' {run}")
             output_vcf_upload = run_vcf_upload(vcf_file, 'UMCU CNV VCF v1', run)
             if output_vcf_upload:
-                upload_result.append(output_vcf_upload)
+                upload_result.extend(output_vcf_upload)
     return upload_result
 
 
