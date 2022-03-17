@@ -257,7 +257,7 @@ def rsync_server_remote(settings, hpc_server, client, to_be_transferred):
                     )
                 make_mail(
                     filename="{}{}".format(folder["input"], run),
-                    state="ok",
+                    state=rsync_result,
                     upload_result_gatk=upload_result_gatk,
                     upload_result_exomedepth=upload_result_exomedepth
                 )
@@ -318,7 +318,6 @@ def upload_exomedepth_vcf(run, run_folder):
             upload_result.append(f"{sample} not uploaded\t{cnv_samples[sample]}")
         else:
             vcf_file = [vcf for vcf in vcf_files if sample in vcf][0]  # one vcf per sample
-            # print(f"python vcf_upload.py {vcf_file} 'UMCU CNV VCF v1' {run}")
             output_vcf_upload = run_vcf_upload(vcf_file, 'UMCU CNV VCF v1', run)
             if output_vcf_upload:
                 upload_result.extend(output_vcf_upload)

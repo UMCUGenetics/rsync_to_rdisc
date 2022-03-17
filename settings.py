@@ -6,7 +6,7 @@ temperror = "{}temp.error".format(wkdir)
 log = "Rsync_Dx.log"
 errorlog = "Rsync_Dx.errorlog"
 bgarray = "/mnt/bgarray/"
-alissa_vcf_upload = "/diaggen/software/production/alissa_vcf_upload"
+alissa_vcf_upload = "/diaggen/software/production/alissa_vcf_upload/"
 
 """ Server/user settings """
 host_keys = ""
