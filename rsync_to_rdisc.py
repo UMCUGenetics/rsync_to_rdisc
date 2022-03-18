@@ -82,7 +82,6 @@ def send_email(sender, receivers, subject, text, attachment=None):
 
 
 def rsync_and_check(action, run, folder, temperror, wkdir, folder_dic, log):
-    print(f"Rsync run: {run}")
     os.system(action)
     bgarray_log_file = "{bgarray}/{log}".format(bgarray=settings.bgarray, log=log)
     if int(Path(temperror).stat().st_size) == 0:  # do not include run in transferred_runs.txt if temp error file is not empty.
@@ -94,7 +93,6 @@ def rsync_and_check(action, run, folder, temperror, wkdir, folder_dic, log):
             log_file.write("\n>>> No errors detected <<<\n")
 
         os.system("rm {}".format(temperror))
-        print("no errors")
         return "ok"
     else:
         with open(bgarray_log_file, 'a') as log_file:
@@ -104,7 +102,6 @@ def rsync_and_check(action, run, folder, temperror, wkdir, folder_dic, log):
             ).format(run=run, folder=folder))
 
         os.system(action)
-        print("errors, check errorlog file")
         make_mail("{}{}".format(folder_dic[folder]["input"], run), "error")
         return "error"
 
@@ -122,7 +119,6 @@ def check_mount(bgarray, run_file):
     if os.path.exists(bgarray):
         pass
     else:
-        print("Mount is lost.")
         make_mail("mount", "lost_mount", run_file=run_file)
         sys.exit()
 
