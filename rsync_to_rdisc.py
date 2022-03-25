@@ -2,6 +2,8 @@
 import sys
 import os
 import datetime
+import glob
+import subprocess
 
 from email import encoders
 from email.mime.multipart import MIMEMultipart
@@ -12,37 +14,43 @@ import mimetypes
 import socket
 from paramiko import SSHClient
 from pathlib import Path
+from jinja2 import Environment, FileSystemLoader
 
 import settings
 
 
-def make_mail(filename, state, reason=None, run_file=None):
+def make_mail(filename, state, reason=None, run_file=None, upload_result_gatk=None, upload_result_exomedepth=None):
+    env = Environment(loader=FileSystemLoader("templates"))
+
     if state == "lost_mount":
-        subject = "ERROR: mount lost to BGarray for {}".format(socket.gethostname())
-        text = (
-            "<html><body><p>Mount to BGarray is lost for {0}</p>"
-            "<p>Remove {1} before datatransfer can be restarted</p></body></html>"
-        ).format(socket.gethostname(), run_file)
+        hostname = socket.gethostname()
+        subject = "ERROR: mount lost to BGarray for {}".format(hostname)
+        template = env.get_template("lost_mount.html")
+        text = template.render(hostname=hostname, run_file=run_file)
     elif state == "lost_hpc":
         subject = "ERROR: Connection to HPC transfernodes {} are lost".format(filename)
-        text = (
-            "<html><body><p>Connection to HPC transfernodes {0} are lost</p>"
-            "<p>Remove {1} before datatransfer can be restarted</p></body></html>"
-        ).format(filename, run_file)
+        template = env.get_template("lost_hpc.html")
+        text = template.render(filename=filename, run_file=run_file)
     elif state == "ok":
         subject = "COMPLETED: Transfer to BGarray has succesfully completed for {}".format(filename)
-        text = "<html><body><p>Transfer to BGarray has succesfully completed for {}</p></body></html>".format(filename)
+        template = env.get_template("transfer_ok.html")
+        text = template.render(
+            filename=filename,
+            upload_result_gatk=upload_result_gatk,
+            upload_result_exomedepth=upload_result_exomedepth
+        )
     elif state == "error":
         subject = "ERROR: transfer to BGarray has not completed for {}".format(filename)
-        text = "<html><body><p>Transfer to BGarray has not been completed for {}</p></body></html>".format(filename)
+        template = env.get_template("transfer_error.html")
+        text = template.render(filename=filename)
     elif state == "notcomplete":
         subject = reason
-        text = ("<html><body><p> Data not transferred to BGarray. Run {0}</p>"
-                "<p>Remove {1} before datatransfer can be restarted</p></body></html>".format(filename, run_file))
+        template = env.get_template("transfer_notcomplete.html")
+        text = template.render(filename=filename, run_file=run_file)
     elif state == "settings":
         subject = reason
-        text = ("<html><body><p>Settings.py need to be fixed before datatransfer can resume</p>"
-                "<p>Remove {} before datatransfer can be restarted</p></body></html>".format(run_file))
+        template = env.get_template("settings.html")
+        text = template.render(run_file=run_file)
     send_email(settings.email_from, settings.email_to, subject, text)
 
 
@@ -74,7 +82,6 @@ def send_email(sender, receivers, subject, text, attachment=None):
 
 
 def rsync_and_check(action, run, folder, temperror, wkdir, folder_dic, log):
-    print(f"Rsync run: {run}")
     os.system(action)
     bgarray_log_file = "{bgarray}/{log}".format(bgarray=settings.bgarray, log=log)
     if int(Path(temperror).stat().st_size) == 0:  # do not include run in transferred_runs.txt if temp error file is not empty.
@@ -86,8 +93,6 @@ def rsync_and_check(action, run, folder, temperror, wkdir, folder_dic, log):
             log_file.write("\n>>> No errors detected <<<\n")
 
         os.system("rm {}".format(temperror))
-        print("no errors")
-        make_mail("{}{}".format(folder_dic[folder]["input"], run), "ok")
         return "ok"
     else:
         with open(bgarray_log_file, 'a') as log_file:
@@ -97,7 +102,6 @@ def rsync_and_check(action, run, folder, temperror, wkdir, folder_dic, log):
             ).format(run=run, folder=folder))
 
         os.system(action)
-        print("errors, check errorlog file")
         make_mail("{}{}".format(folder_dic[folder]["input"], run), "error")
         return "error"
 
@@ -115,7 +119,6 @@ def check_mount(bgarray, run_file):
     if os.path.exists(bgarray):
         pass
     else:
-        print("Mount is lost.")
         make_mail("mount", "lost_mount", run_file=run_file)
         sys.exit()
 
@@ -234,9 +237,87 @@ def rsync_server_remote(settings, hpc_server, client, to_be_transferred):
             log_file.write("\n#########\nDate: {date}\nRun_folder: {run}\n".format(date=date, run=run))
 
         if continue_rsync:
-            rsync_and_check(action, run, to_be_transferred[run], temperror, settings.wkdir, folder_dic, log)
+            rsync_result = rsync_and_check(action, run, to_be_transferred[run], temperror, settings.wkdir, folder_dic, log)
+            if rsync_result == "ok":
+                upload_result_gatk = None
+                upload_result_exomedepth = None
+                if folder['upload_gatk_vcf']:
+                    upload_result_gatk = upload_gatk_vcf(
+                        run=run,
+                        run_folder="{output}/{run}".format(output=folder["output"], run=run)
+                    )
+                if folder['upload_exomedepth_vcf']:
+                    upload_result_exomedepth = upload_exomedepth_vcf(
+                        run=run,
+                        run_folder="{output}/{run}".format(output=folder["output"], run=run)
+                    )
+                make_mail(
+                    filename="{}{}".format(folder["input"], run),
+                    state=rsync_result,
+                    upload_result_gatk=upload_result_gatk,
+                    upload_result_exomedepth=upload_result_exomedepth
+                )
 
     return remove_run_file
+
+
+def run_vcf_upload(vcf_file, vcf_type, run):
+    upload_vcf = subprocess.run(
+            (
+                f"source {settings.alissa_vcf_upload}/venv/bin/activate && "
+                f"python {settings.alissa_vcf_upload}/vcf_upload.py {vcf_file} '{vcf_type}' {run}"
+            ),
+            shell=True,
+            stdout=subprocess.PIPE,
+            encoding='UTF-8'
+        )
+    # Cleanup upload_vcf output: Strip and split on new line, remove empty strings from list
+    upload_vcf_out = list(filter(None, upload_vcf.stdout.strip().split('\n')))
+    return upload_vcf_out
+
+
+def upload_gatk_vcf(run, run_folder):
+    run = '_'.join(run.split('_')[:4])  # remove projects from run.
+    upload_result = []
+    for vcf_file in glob.iglob("{}/single_sample_vcf/*.vcf".format(run_folder)):
+        output_vcf_upload = run_vcf_upload(vcf_file, 'VCF_FILE', run)
+        if output_vcf_upload:
+            upload_result.extend(output_vcf_upload)
+    return upload_result
+
+
+def upload_exomedepth_vcf(run, run_folder):
+    # Parse <run>_exomedepth_summary.txt
+    cnv_samples = {}
+    upload_result = []
+    vcf_files = glob.glob("{}/exomedepth/HC/*.vcf".format(run_folder))
+    with open(f'{run_folder}/QC/CNV/{run}_exomedepth_summary.txt') as exomedepth_summary:
+        for line in exomedepth_summary:
+            line = line.strip()
+            # Skip empty or comment lines
+            if not line or line.startswith('#'):
+                continue
+
+            # Parse sample
+            if 'WARNING' in line.upper():
+                warnings = line.split('\t')[1:]
+                sample = line.split(';')[0]
+            else:
+                warnings = ''
+                sample = line.split(';')[0]
+
+            cnv_samples[sample] = '\t'.join(warnings)
+
+    run = '_'.join(run.split('_')[:4])  # remove project from run.
+    for sample in cnv_samples:
+        if cnv_samples[sample]:
+            upload_result.append(f"{sample} not uploaded\t{cnv_samples[sample]}")
+        else:
+            vcf_file = [vcf for vcf in vcf_files if sample in vcf][0]  # one vcf per sample
+            output_vcf_upload = run_vcf_upload(vcf_file, 'UMCU CNV VCF v1', run)
+            if output_vcf_upload:
+                upload_result.extend(output_vcf_upload)
+    return upload_result
 
 
 if __name__ == "__main__":
@@ -257,7 +338,7 @@ if __name__ == "__main__":
     """Rsync folders from HPC to bgarray"""
     remove_run_file = rsync_server_remote(settings, hpc_server, client, to_be_transferred)
 
-    """ Remove run_file is transfer daemon shouldn't be blocked to prevent repeated mailing """
+    """ Remove run_file if transfer daemon shouldn't be blocked to prevent repeated mailing """
     if remove_run_file:
         os.remove(run_file)
 
