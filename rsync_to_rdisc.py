@@ -143,13 +143,16 @@ def connect_to_remote_server(host_keys, server, user, run_file):
     try:
         client.connect(server[0], username=user)
         hpc_server = server[0]
-    except OSError:
+    except (OSError, socket.timeout):
         try:
             client.connect(server[1], username=user)
             hpc_server = server[1]
         except OSError:
             make_mail(" and ".join(server), "lost_hpc", run_file=run_file)
             sys.exit("connection to HPC transfernodes are lost")
+        except socket.timeout:
+            sys.exit("HPC connection timeout")
+            os.remove(run_file)
 
     return client, hpc_server
 
