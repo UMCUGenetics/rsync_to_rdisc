@@ -12,7 +12,7 @@ from email.mime.text import MIMEText
 import smtplib
 import mimetypes
 import socket
-from paramiko import SSHClient
+from paramiko import SSHClient, ssh_exception
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 
@@ -143,24 +143,29 @@ def connect_to_remote_server(host_keys, server, user, run_file):
     try:
         client.connect(server[0], username=user)
         hpc_server = server[0]
-    except (OSError, socket.timeout):
+    except (OSError, socket.timeout, ssh_exception.SSHException, ssh_exception.AuthenticationException):
         try:
             client.connect(server[1], username=user)
             hpc_server = server[1]
         except OSError:
             make_mail(" and ".join(server), "lost_hpc", run_file=run_file)
             sys.exit("connection to HPC transfernodes are lost")
-        except socket.timeout:
-            sys.exit("HPC connection timeout")
+        except (socket.timeout, ssh_exception.SSHException, ssh_exception.AuthenticationException):
             os.remove(run_file)
+            sys.exit("HPC connection timeout/SSHException/AuthenticationException")
 
     return client, hpc_server
 
 
-def get_folders_remote_server(client, folder_dic):
+def get_folders_remote_server(client, folder_dic, run_file):
     to_be_transferred = {}
     for folder in folder_dic:
-        stdin, stdout, stderr = client.exec_command("ls {}".format(folder_dic[folder]["input"]))
+        try:
+            stdin, stdout, stderr = client.exec_command("ls {}".format(folder_dic[folder]["input"]))
+        except (ConnectionResetError, TimeoutError):
+            os.remove(run_file)
+            sys.exit("HPC connection ConnectionResetError/TimeoutError")
+
         folders = stdout.read().decode("utf8")
         for item in folders.split():
             combined = "{0}_{1}".format(item.split()[-1], folder)
@@ -336,7 +341,7 @@ if __name__ == "__main__":
 
     """ Get folders to be transfer from HPC """
     client, hpc_server = connect_to_remote_server(settings.host_keys, settings.server, settings.user, run_file)
-    to_be_transferred = get_folders_remote_server(client, settings.folder_dic)
+    to_be_transferred = get_folders_remote_server(client, settings.folder_dic, run_file)
 
     """Rsync folders from HPC to bgarray"""
     remove_run_file = rsync_server_remote(settings, hpc_server, client, to_be_transferred)
