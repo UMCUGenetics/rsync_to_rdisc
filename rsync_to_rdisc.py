@@ -31,8 +31,11 @@ def make_mail(filename, state, reason=None, run_file=None, upload_result_gatk=No
         subject = "ERROR: Connection to HPC transfernodes {} are lost".format(filename)
         template = env.get_template("lost_hpc.html")
         text = template.render(filename=filename, run_file=run_file)
-    elif state == "ok":
-        subject = "COMPLETED: Transfer to BGarray has succesfully completed for {}".format(filename)
+    elif state == "ok" or state == "vcf_upload_error":
+        if state == "ok":
+            subject = "COMPLETED: Transfer to BGarray has succesfully completed for {}".format(filename)
+        elif state == "vcf_upload_error":
+            subject = "ERROR: Transfer to BGarray has completed with VCF upload error for {}".format(filename)
         template = env.get_template("transfer_ok.html")
         text = template.render(
             filename=filename,
@@ -249,19 +252,27 @@ def rsync_server_remote(settings, hpc_server, client, to_be_transferred):
             if rsync_result == "ok":
                 upload_result_gatk = None
                 upload_result_exomedepth = None
+                email_state = rsync_result
+
                 if folder['upload_gatk_vcf']:
-                    upload_result_gatk = upload_gatk_vcf(
+                    upload_successful, upload_result_gatk = upload_gatk_vcf(
                         run=run,
                         run_folder="{output}/{run}".format(output=folder["output"], run=run)
                     )
+                    if not upload_successful:
+                        email_state = "vcf_upload_error"
+
                 if folder['upload_exomedepth_vcf']:
-                    upload_result_exomedepth = upload_exomedepth_vcf(
+                    upload_successful, upload_result_exomedepth = upload_exomedepth_vcf(
                         run=run,
                         run_folder="{output}/{run}".format(output=folder["output"], run=run)
                     )
+                    if not upload_successful:
+                        email_state = "vcf_upload_error"
+
                 make_mail(
                     filename="{}{}".format(folder["input"], run),
-                    state=rsync_result,
+                    state=email_state,
                     upload_result_gatk=upload_result_gatk,
                     upload_result_exomedepth=upload_result_exomedepth
                 )
@@ -286,17 +297,24 @@ def run_vcf_upload(vcf_file, vcf_type, run):
 
 def upload_gatk_vcf(run, run_folder):
     run = '_'.join(run.split('_')[:4])  # remove projects from run.
+    upload_successful = True
     upload_result = []
+
     for vcf_file in glob.iglob("{}/single_sample_vcf/*.vcf".format(run_folder)):
         output_vcf_upload = run_vcf_upload(vcf_file, 'VCF_FILE', run)
         if output_vcf_upload:
             upload_result.extend(output_vcf_upload)
-    return upload_result
+
+    if any(['error' in msg.lower() for msg in upload_result]):
+        upload_successful = False
+
+    return upload_successful, upload_result
 
 
 def upload_exomedepth_vcf(run, run_folder):
     # Parse <run>_exomedepth_summary.txt
     cnv_samples = {}
+    upload_successful = True
     upload_result = []
     vcf_files = glob.glob("{}/exomedepth/HC/*.vcf".format(run_folder))
     with open(f'{run_folder}/QC/CNV/{run}_exomedepth_summary.txt') as exomedepth_summary:
@@ -325,7 +343,11 @@ def upload_exomedepth_vcf(run, run_folder):
             output_vcf_upload = run_vcf_upload(vcf_file, 'UMCU CNV VCF v1', run)
             if output_vcf_upload:
                 upload_result.extend(output_vcf_upload)
-    return upload_result
+
+    if any(['error' in msg.lower() for msg in upload_result]):
+        upload_successful = False
+
+    return upload_successful, upload_result
 
 
 if __name__ == "__main__":
