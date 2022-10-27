@@ -295,9 +295,15 @@ def run_vcf_upload(vcf_file, vcf_type, run):
     return upload_vcf_out
 
 
+def check_if_upload_successful(upload_result):
+    for msg in upload_result:
+        if 'error' in msg.lower():
+            return False
+    return True
+
+
 def upload_gatk_vcf(run, run_folder):
     run = '_'.join(run.split('_')[:4])  # remove projects from run.
-    upload_successful = True
     upload_result = []
 
     for vcf_file in glob.iglob("{}/single_sample_vcf/*.vcf".format(run_folder)):
@@ -305,8 +311,7 @@ def upload_gatk_vcf(run, run_folder):
         if output_vcf_upload:
             upload_result.extend(output_vcf_upload)
 
-    if any(['error' in msg.lower() for msg in upload_result]):
-        upload_successful = False
+    upload_successful = check_if_upload_successful(upload_result)
 
     return upload_successful, upload_result
 
@@ -314,7 +319,6 @@ def upload_gatk_vcf(run, run_folder):
 def upload_exomedepth_vcf(run, run_folder):
     # Parse <run>_exomedepth_summary.txt
     cnv_samples = {}
-    upload_successful = True
     upload_result = []
     vcf_files = glob.glob("{}/exomedepth/HC/*.vcf".format(run_folder))
     with open(f'{run_folder}/QC/CNV/{run}_exomedepth_summary.txt') as exomedepth_summary:
@@ -344,8 +348,7 @@ def upload_exomedepth_vcf(run, run_folder):
             if output_vcf_upload:
                 upload_result.extend(output_vcf_upload)
 
-    if any(['error' in msg.lower() for msg in upload_result]):
-        upload_successful = False
+    upload_successful = check_if_upload_successful(upload_result)
 
     return upload_successful, upload_result
 
