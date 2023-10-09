@@ -1,46 +1,76 @@
 #! /usr/bin/env python3
 from csv import writer
+from datetime import datetime
 import glob
+import os
 import subprocess
+import sys
 
-from email import encoders
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email.mime.text import MIMEText
-import smtplib
-import mimetypes
-import socket
+from socket import gethostname, timeout
 from paramiko import SSHClient, ssh_exception
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
+from redmail import EmailSender
 
 import settings
 
 
-def make_mail(filename, state, reason=None, run_file=None, upload_result_gatk=None, upload_result_exomedepth=None):
-    env = Environment(loader=FileSystemLoader("templates"))
+def send_email(subject, template, body_params, attachments=None):
+    email = EmailSender(host=settings.email_smtp_host, port=settings.email_smtp_port, use_starttls=False)
 
-    if state == "lost_mount":
-        hostname = socket.gethostname()
-        subject = "ERROR: mount lost to BGarray for {}".format(hostname)
-        template = env.get_template("lost_mount.html")
-        text = template.render(hostname=hostname, run_file=run_file)
-    elif state == "lost_hpc":
-        subject = "ERROR: Connection to HPC transfernodes {} are lost".format(filename)
-        template = env.get_template("lost_hpc.html")
-        text = template.render(filename=filename, run_file=run_file)
-    elif state == "ok" or state == "vcf_upload_error":
+    # Setup template environment
+    jinja_env = Environment(loader=FileSystemLoader("templates"))
+    email.templates_html = jinja_env
+
+    # Send the email
+    email.send(
+        subject=subject,
+        sender=settings.email_from,
+        receivers=settings.email_to,
+        attachments=attachments,
+        html_template=template,
+        body_params=body_params,
+    )
+
+
+def send_mail_lost_mount(run_file):
+    hostname = gethostname()
+    send_email(
+        f"ERROR: mount lost to BGarray for {hostname}", "lost_mount.html",
+        {"hostname": hostname, "run_file": run_file},
+    )
+
+
+def send_mail_lost_hpc(hpc_host, run_file):
+    send_email(
+        f"ERROR: Connection to HPC transfernodes {hpc_host} are lost", "lost_hpc.html",
+        {"filename": hpc_host, "run_file": run_file},
+    )
+
+
+def send_mail_transfer_state(filename, state, upload_result_gatk=None, upload_result_exomedepth=None):
+    body_params = {"filename": filename}
+    if state == "ok" or state == "vcf_upload_error":
         if state == "ok":
-            subject = "COMPLETED: Transfer to BGarray has succesfully completed for {}".format(filename)
+            subject = f"COMPLETED: Transfer to BGarray has succesfully completed for {filename}"
         elif state == "vcf_upload_error":
-            subject = "ERROR: Transfer to BGarray has completed with VCF upload error for {}".format(filename)
-        template = env.get_template("transfer_ok.html")
-        text = template.render(
-            filename=filename,
-            upload_result_gatk=upload_result_gatk,
-            upload_result_exomedepth=upload_result_exomedepth
-        )
+            subject = f"ERROR: Transfer to BGarray has completed with VCF upload error for {filename}"
+        template = "transfer_ok.html"
+        body_params.update({
+            "upload_result_gatk": upload_result_gatk,
+            "upload_result_exomedepth": upload_result_exomedepth
+        })
     elif state == "error":
+        subject = f"ERROR: Transfer to BGarray has not completed for {filename}"
+        template = "transfer_error.html"
+    send_email(subject, template, body_params)
+
+
+def send_mail_incomplete(run, title_template, subject, run_file):
+    body_params = {"run_file": run_file}
+    if title_template == "transfer_notcomplete":
+        body_params["filename"] = run
+    send_email(subject, f"{title_template}.html", body_params)
 
 
 def check_rsync(run, folder, temperror, log):
@@ -84,24 +114,22 @@ def get_transferred_runs(wkdir):
         return {}
 
 
-def connect_to_remote_server(host_keys, server, user, run_file):
+def connect_to_remote_server(host_keys, servers, user, run_file):
     client = SSHClient()
     client.load_host_keys(host_keys)
     client.load_system_host_keys()
-    try:
-        client.connect(server[0], username=user)
-        hpc_server = server[0]
-    except (OSError, socket.timeout, ssh_exception.SSHException, ssh_exception.AuthenticationException):
+    for hpc_server in servers:
         try:
-            client.connect(server[1], username=user)
-            hpc_server = server[1]
+            client.connect(hpc_server, username=user)
+            break
         except OSError:
-            make_mail(" and ".join(server), "lost_hpc", run_file=run_file)
-            sys.exit("connection to HPC transfernodes are lost")
-        except (socket.timeout, ssh_exception.SSHException, ssh_exception.AuthenticationException):
-            os.remove(run_file)
-            sys.exit("HPC connection timeout/SSHException/AuthenticationException")
-
+            if hpc_server == servers[-1]:
+                send_mail_lost_hpc(" and ".join(servers), run_file)
+                sys.exit("Connection to HPC transfernodes are lost.")
+        except (timeout, ssh_exception.SSHException, ssh_exception.AuthenticationException):
+            if hpc_server == servers[-1]:
+                Path.unlink(run_file)
+                sys.exit("HPC connection timeout/SSHException/AuthenticationException")
     return client, hpc_server
 
 
@@ -137,28 +165,27 @@ def check_if_file_missing(required_files, input_folder, client):
     return missing
 
 
-def action_if_file_missing(folder, remove_run_file, missing, run):
-    if 'continue_without_email' in folder and folder["continue_without_email"]:
+def action_if_file_missing(folder, remove_run_file, missing, run, folder_location, run_file):
+    # Send a mail and lock datatransfer
+    if not isinstance(folder.get('continue_without_email', None), bool):
+        reason = ("Unknown status {0}: {1} in settings.py for {2}").format(
+            'continue_without_email', folder.get('continue_without_email', None), folder)
+        send_mail_incomplete(run, "settings", reason, run_file)
+        return False
+    elif 'continue_without_email' in folder and folder["continue_without_email"]:
         # Do not send a mail and do not lock datatransfer
-        pass
+        return remove_run_file
     elif 'continue_without_email' in folder and not folder["continue_without_email"]:
         # Send a mail and lock datatransfer
         reason = (
             "Analysis not complete (file(s) {0} missing). "
-            "Run = {1} in folder {2} ".format(" and ".join(missing), run, to_be_transferred[run]))
-        make_mail(run, "notcomplete", reason, run_file)
-        remove_run_file = False
-    else:  # Send a mail and lock datatransfer
-        reason = ("Unknown status {0} in settings.py for {1}").format(folder["continue_without_email"], folder)
-        make_mail(run, "settings", reason, run_file)
-        remove_run_file = False
-
-    return remove_run_file
+            "Run = {1} in folder {2} ".format(" and ".join(missing), run, folder_location))
+        send_mail_incomplete(run, "transfer_notcomplete", reason, run_file)
+        return False
 
 
-def rsync_server_remote(settings, hpc_server, client, to_be_transferred):
-    date = str(datetime.datetime.now()).split(".")[0]
-    bgarray_log_file = "{bgarray}/{log}".format(bgarray=settings.bgarray, log=settings.log)
+def rsync_server_remote(hpc_server, client, to_be_transferred, run_file):
+    date = datetime.now.strftime("%Y-%m-%d %H:%M:%S")
     remove_run_file = True
 
     temperror = settings.temperror
@@ -166,62 +193,66 @@ def rsync_server_remote(settings, hpc_server, client, to_be_transferred):
     log = settings.log
 
     for run in to_be_transferred:
-        continue_rsync = True
-        folder = folder_dic[to_be_transferred[run]]
-        action = (
-            "rsync -rahuL --stats {user}@{server}:{path}{run} {output}/ "
-            " 1>> {bgarray}/{log} 2>> {bgarray}/{errorlog} 2> {temperror}"
-        ).format(
-            user=settings.user,
-            server=hpc_server,
-            path=folder["input"],
-            run=run,
-            output=folder["output"],
-            bgarray=settings.bgarray,
-            log=log,
-            errorlog=settings.errorlog,
-            temperror=temperror
-        )
-
-        missing = check_if_file_missing(folder, client, run)
+        with open(f"{settings.bgarray}/{log}", 'a', newline='\n') as log_file:
+            log_file_writer = writer(log_file, delimiter='\t')
+            log_file_writer.writerows([["#########"], [f"Date: {date}", f"Run_folder: {run}"]])
+        folder_location_type = to_be_transferred[run]
+        # settings per folder data type, such as remote input dir and local output dir, etc.
+        folder = folder_dic[folder_location_type]
+        missing = check_if_file_missing(folder["files_required"], f"{folder['input']}{run}", client)
 
         if missing:
-            continue_rsync = False
-            remove_run_file = action_if_file_missing(folder, remove_run_file, missing, run)
+            remove_run_file = action_if_file_missing(folder, remove_run_file, missing, run, folder_location_type, run_file)
+            continue  # don't transfer the run if a required file is missing.
+        os.system(
+            (
+                "rsync -rahuL --stats {user}@{server}:{path}{run} {output}/ "
+                " 1>> {bgarray}/{log} 2>> {bgarray}/{errorlog} 2> {temperror}"
+            ).format(
+                user=settings.user,
+                server=hpc_server,
+                path=folder["input"],
+                run=run,
+                output=folder["output"],
+                bgarray=settings.bgarray,
+                log=log,
+                errorlog=settings.errorlog,
+                temperror=temperror
+            )
+        )
+        rsync_result = check_rsync(run, folder_location_type, temperror, f"{settings.bgarray}/{log}")
 
-        with open(bgarray_log_file, 'a') as log_file:
-            log_file.write("\n#########\nDate: {date}\nRun_folder: {run}\n".format(date=date, run=run))
+        if rsync_result == "ok":
+            upload_result_gatk = None
+            upload_result_exomedepth = None
+            email_state = rsync_result
 
-        if continue_rsync:
-            rsync_result = rsync_and_check(action, run, to_be_transferred[run], temperror, settings.wkdir, folder_dic, log)
-            if rsync_result == "ok":
-                upload_result_gatk = None
-                upload_result_exomedepth = None
-                email_state = rsync_result
-
-                if folder['upload_gatk_vcf']:
-                    upload_successful, upload_result_gatk = upload_gatk_vcf(
-                        run=run,
-                        run_folder="{output}/{run}".format(output=folder["output"], run=run)
-                    )
-                    if not upload_successful:
-                        email_state = "vcf_upload_error"
-
-                if folder['upload_exomedepth_vcf']:
-                    upload_successful, upload_result_exomedepth = upload_exomedepth_vcf(
-                        run=run,
-                        run_folder="{output}/{run}".format(output=folder["output"], run=run)
-                    )
-                    if not upload_successful:
-                        email_state = "vcf_upload_error"
-
-                make_mail(
-                    filename="{}{}".format(folder["input"], run),
-                    state=email_state,
-                    upload_result_gatk=upload_result_gatk,
-                    upload_result_exomedepth=upload_result_exomedepth
+            if folder['upload_gatk_vcf']:
+                upload_successful, upload_result_gatk = upload_gatk_vcf(
+                    run=run,
+                    run_folder="{output}/{run}".format(output=folder["output"], run=run)
                 )
+                if not upload_successful:
+                    email_state = "vcf_upload_error"
 
+            if folder['upload_exomedepth_vcf']:
+                upload_successful, upload_result_exomedepth = upload_exomedepth_vcf(
+                    run=run,
+                    run_folder="{output}/{run}".format(output=folder["output"], run=run)
+                )
+                if not upload_successful:
+                    email_state = "vcf_upload_error"
+
+            send_mail_transfer_state(
+                filename="{}{}".format(folder["input"], run),
+                state=email_state,
+                upload_result_gatk=upload_result_gatk,
+                upload_result_exomedepth=upload_result_exomedepth
+            )
+            # do not include run in transferred_runs.txt if temp error file is not empty.
+            with open(f"{settings.wkdir}/transferred_runs.txt", 'a', newline='\n') as log_file:
+                log_file_writer = writer(log_file, delimiter='\t')
+                log_file_writer.writerow([f"{run}_{folder}", email_state])
     return remove_run_file
 
 
@@ -313,8 +344,8 @@ if __name__ == "__main__":
     client, hpc_server = connect_to_remote_server(settings.host_keys, settings.server, settings.user, run_file)
     to_be_transferred = get_folders_remote_server(client, settings.folder_dic, run_file)
 
-    """Rsync folders from HPC to bgarray"""
-    remove_run_file = rsync_server_remote(settings, hpc_server, client, to_be_transferred)
+    """Rsync folders from HPC to bgarray."""
+    remove_run_file = rsync_server_remote(hpc_server, client, to_be_transferred, run_file)
 
     """Remove run_file if transfer daemon shouldn't be blocked to prevent repeated mailing."""
     if remove_run_file:
