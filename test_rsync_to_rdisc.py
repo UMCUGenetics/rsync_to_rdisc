@@ -276,12 +276,13 @@ class TestUploadGatkVcf():
     def side_effect_run_vcf_upload(self, value):
         return value
 
-    @pytest.mark.parametrize("vcf_folder,expected", [
-        (set_up_test["empty_vcf_path"], 0),
-        (set_up_test["single_vcf_path"], 1),
-        (set_up_test["multi_vcf_path"], 2),
+    @pytest.mark.parametrize("vcf_folder_key,expected", [
+        ("empty_vcf_path", 0),
+        ("single_vcf_path", 1),
+        ("multi_vcf_path", 2),
     ])
-    def test_no_vcf(self, set_up_test, vcf_folder, expected, mocker):
+    def test_no_vcf(self, set_up_test, vcf_folder_key, expected, mocker):
+        vcf_folder = set_up_test[vcf_folder_key]
         mock_run_vcf_upload = mocker.patch("rsync_to_rdisc.run_vcf_upload", side_effect=self.side_effect_run_vcf_upload)
         mock_check = mocker.patch("rsync_to_rdisc.check_if_upload_successful")
         run_folder = vcf_folder.parents[1]
@@ -289,7 +290,6 @@ class TestUploadGatkVcf():
         assert len(upload_result) == expected
         assert mock_run_vcf_upload.call_count == expected
         mock_check.assert_called_once()
-
 
 
 class TestUploadExomedepthVcf():
