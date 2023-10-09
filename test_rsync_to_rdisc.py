@@ -237,28 +237,71 @@ class TestActionIfFileMissing():
 
 
 class TestRsyncServerRemote():
-    def test_missing_file(self):
-        pass
+    def test_missing_file(self, set_up_test, mocker):
+        mock_check = mocker.patch("rsync_to_rdisc.check_if_file_missing", return_value=["workflow.done"])
+        mock_action = mocker.patch("rsync_to_rdisc.action_if_file_missing", return_value=False)
+        rsync_to_rdisc.rsync_server_remote(
+            "hpct04", "client", {f"{set_up_test['run']}_2": "Exomes"}, set_up_test['run_file'],
+            "bgarray.log", set_up_test['tmp_path']
+        )
+        mock_check.assert_called_once()
+        assert mock_check.call_args[0][0] == ["workflow.done"]
+        assert f"{set_up_test['run']}_2" in mock_check.call_args[0][1]
+        mock_action.assert_called_once()
 
-    def test_rsync_ok(self):
-        pass
+    def test_rsync_ok(self, set_up_test, mocker, mock_send_mail_transfer_state):
+        mock_check = mocker.patch("rsync_to_rdisc.check_if_file_missing", return_value=[])
+        mock_os_system = mocker.patch("rsync_to_rdisc.os.system")
+        mock_check_rsync = mocker.patch("rsync_to_rdisc.check_rsync", return_value="ok")
+        rsync_to_rdisc.rsync_server_remote(
+            "hpct04", "client", {f"{set_up_test['run']}_3": "Genomes"}, set_up_test['run_file'],
+            log="bgarray.log", bgarray=set_up_test['tmp_path'], wkdir=set_up_test['tmp_path']
+        )
+        mock_check.assert_called_once()
+        mock_os_system.assert_called_once()
+        mock_check_rsync.assert_called_once
+        mock_send_mail_transfer_state.assert_called_once()
+        mock_send_mail_transfer_state.reset_mock()
+        assert f"{set_up_test['run']}_3_Genomes\tok" in Path(set_up_test['tmp_path']/"transferred_runs.txt").read_text()
 
-    def test_rsync_error(self):
-        pass
+    def test_rsync_error(self, set_up_test, mocker, mock_send_mail_transfer_state):
+        mocker.patch("rsync_to_rdisc.check_if_file_missing", return_value=[])
+        mocker.patch("rsync_to_rdisc.os.system")
+        mocker.patch("rsync_to_rdisc.check_rsync", return_value="error")
+        rsync_to_rdisc.rsync_server_remote(
+            "hpct04", "client", {f"{set_up_test['run']}_3": "Exomes"}, set_up_test['run_file'],
+            log="bgarray.log", bgarray=set_up_test['tmp_path'], wkdir=set_up_test['tmp_path']
+        )
+        assert f"{set_up_test['run']}_3_Exomes" not in Path(set_up_test['tmp_path']/"transferred_runs.txt").read_text()
 
     # parametrize gatk/ed error and no errors.
-    def test_vcf_upload(self):
-        pass
+    @pytest.mark.parametrize("project,gatk_succes,ed_succes", [
+        ("5", True, False),
+        ("6", False, True),
+        ("7", False, False)
+    ])
+    def test_vcf_upload(self, project, gatk_succes, ed_succes, set_up_test, mocker, mock_send_mail_transfer_state):
+        analysis = f"{set_up_test['run']}_{project}"
+        mocker.patch("rsync_to_rdisc.check_if_file_missing", return_value=[])
+        mocker.patch("rsync_to_rdisc.os.system")
+        mocker.patch("rsync_to_rdisc.check_rsync", return_value="ok")
+        mocker.patch("rsync_to_rdisc.upload_gatk_vcf", return_value=(gatk_succes, ""))
+        mocker.patch("rsync_to_rdisc.upload_exomedepth_vcf", return_value=(ed_succes, ""))
+
+        rsync_to_rdisc.rsync_server_remote(
+            "hpct04", "client", {f"{analysis}": "Exomes"}, set_up_test['run_file'],
+            log="bgarray.log", bgarray=set_up_test['tmp_path'], wkdir=set_up_test['tmp_path']
+        )
+        mock_send_mail_transfer_state.assert_called_once_with(
+            filename=f'/hpc/diaggen/data/upload/Exomes/{analysis}',
+            state='vcf_upload_error',
+            upload_result_gatk="",
+            upload_result_exomedepth="",
+        )
+        mock_send_mail_transfer_state.reset_mock()
+        assert f"{analysis}_Exomes\tvcf_upload_error" in Path(set_up_test['tmp_path']/"transferred_runs.txt").read_text()
 
 
-def test_run_vcf_upload(mocker, set_up_test):
-    stdout = mocker.MagicMock()
-    stdout.strip().split('\n').return_value = ["", "passed", "done"]
-    mock_subprocess = mocker.MagicMock()
-    # subprocess.run.return_value = "", stdout, ""
-    
-    with mocker.patch("rsync_to_rdisc.subprocess", return_value=mock_subprocess):
-        out = rsync_to_rdisc.run_vcf_upload("fake.vcf", 'VCF_FILE', set_up_test["run"])
 
     print(mock_subprocess.call_args_list)
     mock_subprocess.run.assert_called_once()

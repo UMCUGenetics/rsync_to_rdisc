@@ -184,16 +184,14 @@ def action_if_file_missing(folder, remove_run_file, missing, run, folder_locatio
         return False
 
 
-def rsync_server_remote(hpc_server, client, to_be_transferred, run_file):
-    date = datetime.now.strftime("%Y-%m-%d %H:%M:%S")
+def rsync_server_remote(hpc_server, client, to_be_transferred, run_file, log=settings.log, bgarray=settings.bgarray, wkdir=settings.wkdir):
+    date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     remove_run_file = True
 
     temperror = settings.temperror
     folder_dic = settings.folder_dic
-    log = settings.log
-
     for run in to_be_transferred:
-        with open(f"{settings.bgarray}/{log}", 'a', newline='\n') as log_file:
+        with open(f"{bgarray}/{log}", 'a', newline='\n') as log_file:
             log_file_writer = writer(log_file, delimiter='\t')
             log_file_writer.writerows([["#########"], [f"Date: {date}", f"Run_folder: {run}"]])
         folder_location_type = to_be_transferred[run]
@@ -214,13 +212,13 @@ def rsync_server_remote(hpc_server, client, to_be_transferred, run_file):
                 path=folder["input"],
                 run=run,
                 output=folder["output"],
-                bgarray=settings.bgarray,
+                bgarray=bgarray,
                 log=log,
                 errorlog=settings.errorlog,
                 temperror=temperror
             )
         )
-        rsync_result = check_rsync(run, folder_location_type, temperror, f"{settings.bgarray}/{log}")
+        rsync_result = check_rsync(run, folder_location_type, temperror, f"{bgarray}/{log}")
 
         if rsync_result == "ok":
             upload_result_gatk = None
@@ -250,9 +248,9 @@ def rsync_server_remote(hpc_server, client, to_be_transferred, run_file):
                 upload_result_exomedepth=upload_result_exomedepth
             )
             # do not include run in transferred_runs.txt if temp error file is not empty.
-            with open(f"{settings.wkdir}/transferred_runs.txt", 'a', newline='\n') as log_file:
+            with open(f"{wkdir}/transferred_runs.txt", 'a', newline='\n') as log_file:
                 log_file_writer = writer(log_file, delimiter='\t')
-                log_file_writer.writerow([f"{run}_{folder}", email_state])
+                log_file_writer.writerow([f"{run}_{folder_location_type}", email_state])
     return remove_run_file
 
 
