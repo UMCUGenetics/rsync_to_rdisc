@@ -110,19 +110,15 @@ def rsync_and_check(action, run, folder, temperror, wkdir, folder_dic, log):
 
 
 def check_daemon_running(wkdir):
-    run_file = "{}/transfer.running".format(wkdir)
-    if os.path.isfile(run_file):
+    try:
+        Path(f"{wkdir}/transfer.running").touch(exist_ok=False)
+    except FileExistsError:
         sys.exit()
-    else:
-        os.system("touch {}".format(run_file))
-        return run_file
 
 
 def check_mount(bgarray, run_file):
-    if os.path.exists(bgarray):
-        pass
-    else:
-        make_mail("mount", "lost_mount", run_file=run_file)
+    if not Path(bgarray).exists():
+        send_mail_lost_mount("mount", "lost_mount", run_file=run_file)
         sys.exit()
 
 
