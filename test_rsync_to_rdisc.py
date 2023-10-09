@@ -8,33 +8,41 @@ import pytest
 import rsync_to_rdisc
 
 
-@pytest.fixture
-def set_up_test(tmp_path):
+@pytest.fixture(scope="session")
+def set_up_test(tmp_path_factory):
+    tmp_path = tmp_path_factory.mktemp("tmp")
     # setup folder structure in tmpdir
-    run = "230920_A01131_0356_AHKM7VDRX3_1"
-    processed_run_dir = Path(tmp_path/f"processed/{run}")
-    processed_run_dir.mkdir(parents=True)
+    run = "230920_A01131_0356_AHKM7VDRX3"
+    analysis = f"{run}_1"
+
+    # fake files
     Path(tmp_path/"empty.error").touch()
     Path(tmp_path/"tmp.error").write_text("hello")
     Path(tmp_path/"bgarray.log").touch()
     run_file = tmp_path/"transfer.running"
     Path(run_file).touch()
-    Path(tmp_path/"transferred_runs.txt").write_text(run)
+    Path(tmp_path/"transferred_runs.txt").write_text(analysis)
     Path(tmp_path/"empty/").mkdir()
-    Path(processed_run_dir/"workflow.done").touch()
+
+    # processed folder
+    for project in range(1, 5):
+        processed_analysis = Path(tmp_path/f"processed/{run}_{project}")
+        for subdir in ["single_sample_vcf"]:
+            Path(tmp_path/f"processed/{run}_{project}/{subdir}").mkdir(parents=True)
+        if project != 2:
+            Path(processed_analysis/"workflow.done").touch()
+
+    processed_run_dir = Path(tmp_path/f"processed/{run}_{1}")
 
     # single vcf folders
-    empty_vcf_path = Path(tmp_path/"processed/230920_A01131_0356_AHKM7VDRX3_2/single_sample_vcf/")
-    single_vcf_path = Path(tmp_path/"processed/230920_A01131_0356_AHKM7VDRX3_3/single_sample_vcf/")
-    multi_vcf_path = Path(tmp_path/"processed/230920_A01131_0356_AHKM7VDRX3_4/single_sample_vcf/")
-    empty_vcf_path.mkdir(parents=True)
-    single_vcf_path.mkdir(parents=True)
-    multi_vcf_path.mkdir(parents=True)
-    single_vcf_path.touch()
-    multi_vcf_path.touch()
-    multi_vcf_path.touch()
+    empty_vcf_path = Path(tmp_path/f"processed/{run}_2/single_sample_vcf/")
+    single_vcf_path = Path(tmp_path/f"processed/{run}_3/single_sample_vcf/")
+    multi_vcf_path = Path(tmp_path/f"processed/{run}_4/single_sample_vcf/")
+    Path(single_vcf_path/"test.vcf").touch()
+    Path(multi_vcf_path/"test_1.vcf").touch()
+    Path(multi_vcf_path/"test_2.vcf").touch()
 
-    return {"tmp_path": tmp_path, "processed_run_dir": processed_run_dir, "run_file": run_file, "run": run,
+    return {"tmp_path": tmp_path, "processed_run_dir": processed_run_dir, "run_file": run_file, "run": run, "analysis": analysis,
             "empty_vcf_path": empty_vcf_path, "single_vcf_path": single_vcf_path, "multi_vcf_path": multi_vcf_path}
 
 
@@ -73,21 +81,20 @@ class TestCheckRsync():
         bgarray_log = Path(set_up_test['tmp_path']/"bgarray.log")
         tmperror_empty = Path(set_up_test['tmp_path']/"empty.error")
         rsync_result = rsync_to_rdisc.check_rsync(
-            set_up_test['run'], "Exomes", tmperror_empty, bgarray_log
+            set_up_test['analysis'], "Exomes", tmperror_empty, bgarray_log
         )
         assert rsync_result == "ok"
         assert not tmperror_empty.exists()
         assert "No errors detected" in bgarray_log.read_text()
-
-        # assert log message
+        # TODO: assert log message
 
     def test_temperror(self, mock_send_mail_transfer_state, set_up_test):
         bgarray_log = Path(f"{set_up_test['tmp_path']}/bgarray.log")
         rsync_result = rsync_to_rdisc.check_rsync(
-            set_up_test['run'], "Exomes", Path(set_up_test['tmp_path']/"tmp.error"), bgarray_log
+            set_up_test['analysis'], "Exomes", Path(set_up_test['tmp_path']/"tmp.error"), bgarray_log
         )
         assert rsync_result == "error"
-        assert f"{set_up_test['run']}_Exomes errors detected" in bgarray_log.read_text()
+        assert f"{set_up_test['analysis']}_Exomes errors detected" in bgarray_log.read_text()
         mock_send_mail_transfer_state.assert_called_once()
 
         # Reset all mocks
@@ -122,7 +129,7 @@ class TestCheckMount():
 class TestGetTransferredRuns():
     def test_get(self, set_up_test):
         transferred_runs = rsync_to_rdisc.get_transferred_runs(set_up_test['tmp_path'])
-        assert transferred_runs == {set_up_test['run']}
+        assert transferred_runs == {set_up_test['analysis']}
 
     def test_empty_transferred_runs(self, set_up_test, mocker):
         mock_touch = mocker.patch("rsync_to_rdisc.Path.touch")
@@ -175,7 +182,7 @@ class TestGetFoldersRemoteServer():
         client = mocker.MagicMock()
         client.exec_command.return_value = "", stdout, ""
         rsync_to_rdisc.get_folders_remote_server(
-            client, {"Exomes": {"input": ""}}, set_up_test['run_file'], {set_up_test['run']}
+            client, {"Exomes": {"input": ""}}, set_up_test['run_file'], {set_up_test['analysis']}
         )
 
     @pytest.mark.parametrize("side", [ConnectionResetError, TimeoutError])
@@ -184,7 +191,7 @@ class TestGetFoldersRemoteServer():
         client.exec_command.side_effect = side
         with pytest.raises(SystemExit) as system_error:
             rsync_to_rdisc.get_folders_remote_server(
-                client, {"Exomes": {"input": ""}}, set_up_test['run_file'], {set_up_test['run']}
+                client, {"Exomes": {"input": ""}}, set_up_test['run_file'], {set_up_test['analysis']}
             )
         mock_path_unlink.assert_called_with(set_up_test['run_file'])
         assert system_error.type == SystemExit
@@ -209,7 +216,7 @@ class TestCheckIfFileMissing():
 class TestActionIfFileMissing():
     def test_without_email(self, set_up_test):
         return_bool = rsync_to_rdisc.action_if_file_missing(
-            {"continue_without_email": True}, True, "", set_up_test["run"], "Exomes", set_up_test["run_file"]
+            {"continue_without_email": True}, True, "", set_up_test['analysis'], "Exomes", set_up_test["run_file"]
         )
         assert return_bool
 
@@ -220,7 +227,7 @@ class TestActionIfFileMissing():
     ])
     def test_with_email(self, folder, template, subject, set_up_test, mock_send_mail_incomplete):
         return_bool = rsync_to_rdisc.action_if_file_missing(
-            folder, True, "", set_up_test["run"], "Exomes", set_up_test["run_file"]
+            folder, True, "", set_up_test['analysis'], "Exomes", set_up_test["run_file"]
         )
         mock_send_mail_incomplete.assert_called_once()
         assert template == mock_send_mail_incomplete.call_args[0][1]
