@@ -133,20 +133,20 @@ def connect_to_remote_server(host_keys, servers, user, run_file):
     return client, hpc_server
 
 
-def get_folders_remote_server(client, folder_dic, run_file):
+def get_folders_remote_server(client, folder_dic, run_file, transferred_set):
     to_be_transferred = {}
     for folder in folder_dic:
         try:
             stdin, stdout, stderr = client.exec_command("ls {}".format(folder_dic[folder]["input"]))
         except (ConnectionResetError, TimeoutError):
-            os.remove(run_file)
+            Path.unlink(run_file)
             sys.exit("HPC connection ConnectionResetError/TimeoutError")
 
-        folders = stdout.read().decode("utf8")
-        for item in folders.split():
-            combined = "{0}_{1}".format(item.split()[-1], folder)
-            if combined not in transferred_dic:
-                to_be_transferred[item.split()[-1]] = folder
+        folders = stdout.read().decode("utf8").split()
+        for item in folders:
+            combined = f"{item}_{folder}"
+            if combined not in transferred_set:
+                to_be_transferred[item] = folder
 
     return to_be_transferred
 
@@ -342,7 +342,7 @@ if __name__ == "__main__":
 
     """Get folders to be transfer from HPC."""
     client, hpc_server = connect_to_remote_server(settings.host_keys, settings.server, settings.user, run_file)
-    to_be_transferred = get_folders_remote_server(client, settings.folder_dic, run_file)
+    to_be_transferred = get_folders_remote_server(client, settings.folder_dic, run_file, transferred_set)
 
     """Rsync folders from HPC to bgarray."""
     remove_run_file = rsync_server_remote(hpc_server, client, to_be_transferred, run_file)
