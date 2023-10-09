@@ -178,14 +178,14 @@ def get_folders_remote_server(client, folder_dic, run_file):
     return to_be_transferred
 
 
-def check_if_file_missing(folder, client, run):
+def check_if_file_missing(required_files, input_folder, client):
     missing = []
-    for check_file in folder["files_required"]:
+    for check_file in required_files:
         if check_file:
             stdin, stdout, stderr = client.exec_command((
-                "[[ -f {0}{1}/{2} ]] && echo \"Present\" "
+                "[[ -f {0}/{1} ]] && echo \"Present\" "
                 "|| echo \"Absent\""
-            ).format(folder["input"], run, check_file))
+            ).format(input_folder, check_file))
             status = stdout.read().decode("utf8").rstrip()
             if status == "Absent":
                 missing.append(check_file)
