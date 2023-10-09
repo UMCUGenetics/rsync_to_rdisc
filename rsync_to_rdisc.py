@@ -1,7 +1,5 @@
 #! /usr/bin/env python3
-import sys
-import os
-import datetime
+from csv import writer
 import glob
 import subprocess
 
@@ -43,70 +41,23 @@ def make_mail(filename, state, reason=None, run_file=None, upload_result_gatk=No
             upload_result_exomedepth=upload_result_exomedepth
         )
     elif state == "error":
-        subject = "ERROR: transfer to BGarray has not completed for {}".format(filename)
-        template = env.get_template("transfer_error.html")
-        text = template.render(filename=filename)
-    elif state == "notcomplete":
-        subject = reason
-        template = env.get_template("transfer_notcomplete.html")
-        text = template.render(filename=filename, run_file=run_file)
-    elif state == "settings":
-        subject = reason
-        template = env.get_template("settings.html")
-        text = template.render(run_file=run_file)
-    send_email(settings.email_from, settings.email_to, subject, text)
 
 
-def send_email(sender, receivers, subject, text, attachment=None):
-    mail = MIMEMultipart()
-    mail['Subject'] = subject
-    mail['From'] = sender
-    mail['To'] = ';'.join(receivers)
-    if attachment:
-        filename = attachment.split('/')[-1]
-        fp = open(attachment, 'rb')
-        ctype, encoding = mimetypes.guess_type(attachment)
-        if ctype is None or encoding is not None:
-            """ No guess could be made, or the file is encoded (compressed), so use a generic bag-of-bits type."""
-            ctype = 'application/octet-stream'
-        maintype, subtype = ctype.split('/', 1)
-        msg = MIMEBase(maintype, subtype)
-        msg.set_payload(fp.read())
-        fp.close()
-        """Encode the payload using Base64"""
-        encoders.encode_base64(msg)
-        msg.add_header('Content-Disposition', 'attachment', filename=filename)
-        mail.attach(msg)
-    msg = MIMEText(text, 'html')
-    mail.attach(msg)
-    m = smtplib.SMTP("pim.umcutrecht.nl")
-    m.sendmail(sender, receivers, mail.as_string())
-    m.quit()
-
-
-def rsync_and_check(action, run, folder, temperror, wkdir, folder_dic, log):
-    os.system(action)
-    bgarray_log_file = "{bgarray}/{log}".format(bgarray=settings.bgarray, log=log)
-    if int(Path(temperror).stat().st_size) == 0:  # do not include run in transferred_runs.txt if temp error file is not empty.
-        transferred_runs_file = "{wkdir}/transferred_runs.txt".format(wkdir=wkdir)
-        with open(transferred_runs_file, 'a') as log_file:
-            log_file.write("{run}_{folder}\n".format(run=run, folder=folder))
-
-        with open(bgarray_log_file, 'a') as log_file:
-            log_file.write("\n>>> No errors detected <<<\n")
-
-        os.system("rm {}".format(temperror))
-        return "ok"
+def check_rsync(run, folder, temperror, log):
+    if not Path(temperror).stat().st_size:
+        msg_bgarray_log = [[""], [">>> No errors detected <<<"]]
+        Path.unlink(temperror)  # remove tmperror file.
+        rsync_result = "ok"
     else:
-        with open(bgarray_log_file, 'a') as log_file:
-            log_file.write((
-                "\n>>>{run}_{folder} errors detected in Processed data transfer, "
-                "not added to completed files <<<\n"
-            ).format(run=run, folder=folder))
-
-        os.system(action)
-        make_mail("{}{}".format(folder_dic[folder]["input"], run), "error")
-        return "error"
+        msg_bgarray_log = [
+            [""], [f">>>{run}_{folder} errors detected in Processed data transfer, not added to completed files <<<"]
+        ]
+        send_mail_transfer_state("{}{}".format(settings.folder_dic[folder]["input"], run), "error")
+        rsync_result = "error"
+    with open(log, 'a', newline='\n') as log_file:
+        log_file_writer = writer(log_file, delimiter='\t')
+        log_file_writer.writerows(msg_bgarray_log)
+    return rsync_result
 
 
 def check_daemon_running(wkdir):
