@@ -261,12 +261,12 @@ def test_run_vcf_upload(mocker, set_up_test):
 
 
 @pytest.mark.parametrize("msg,expected", [
-    ("error", False),
-    ("Error", False),
-    ("vcf_upload_error", False),
-    ("ok", True)
+    (["error"], False),
+    (["Error"], False),
+    (["vcf_upload_error"], False),
+    (["ok"], True)
    ])
-def test_check_if_upload_succesful(self, msg, expected):
+def test_check_if_upload_succesful(msg, expected):
     return_bool = rsync_to_rdisc.check_if_upload_successful(msg)
     assert return_bool == expected
 
