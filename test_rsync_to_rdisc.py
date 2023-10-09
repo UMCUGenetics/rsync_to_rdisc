@@ -138,7 +138,7 @@ class TestConnectToRemoteServer():
             rsync_to_rdisc.connect_to_remote_server("host_keys", ["hpct04", "hpct05"], "user", set_up_test['run_file'])
         fake_ssh_client.load_host_keys.assert_called_once_with("host_keys")
         fake_ssh_client.load_system_host_keys.assert_called_once()
-        fake_ssh_client.connect.call_count <= 2 and fake_ssh_client.connect.call_count  # not 0 and max nr provided servers
+        assert fake_ssh_client.connect.call_count <= 2 and fake_ssh_client.connect.call_count  # not 0 and max nr provided servers
 
     def test_raises_OSerror(self, mocker, set_up_test, mock_send_mail_lost_hpc, mock_sys_exit):
         fake_ssh_client = mocker.MagicMock()
@@ -153,18 +153,17 @@ class TestConnectToRemoteServer():
 
     # TODO: test socket.timeout
     @pytest.mark.parametrize("side", [ssh_exception.SSHException, ssh_exception.AuthenticationException])
-    def test_raises_errors(self, side, mocker, set_up_test, mock_path_unlink):
+    def test_raises_errors(self, side, mocker, set_up_test, mock_path_unlink, mock_sys_exit):
         fake_ssh_client = mocker.MagicMock()
         fake_ssh_client.connect.side_effect = side
         with mocker.patch("rsync_to_rdisc.SSHClient", return_value=fake_ssh_client):
-            with pytest.raises(SystemExit) as system_error:
-                rsync_to_rdisc.connect_to_remote_server("host_keys", ["hpct04"], "user", set_up_test['run_file'])
-        assert system_error.type == SystemExit
-        assert str(system_error.value) == "HPC connection timeout/SSHException/AuthenticationException"
+            rsync_to_rdisc.connect_to_remote_server("host_keys", ["hpct04"], "user", set_up_test['run_file'])
+        mock_sys_exit.assert_called_once_with("HPC connection timeout/SSHException/AuthenticationException")
         mock_path_unlink.assert_called_with(set_up_test['run_file'])
 
         # Reset
         mock_path_unlink.reset_mock()
+        mock_sys_exit.reset_mock()
 
 
 class TestGetFoldersRemoteServer():
