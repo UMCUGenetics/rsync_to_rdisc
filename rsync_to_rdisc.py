@@ -126,17 +126,15 @@ def check_mount(bgarray, run_file):
         sys.exit()
 
 
-def make_dictionary_runs(wkdir):
-    transferred_dic = {}
-    if os.path.isfile(str(wkdir) + "transferred_runs.txt"):
-        with open("{}/transferred_runs.txt".format(wkdir), 'r') as runs:
-            for line in runs:
-                transferred_dic[line.rstrip()] = ""
+def get_transferred_runs(wkdir):
+    transferred_runs = Path(f"{wkdir}/transferred_runs.txt")
+    if transferred_runs.is_file():
+        with open(transferred_runs, 'r') as runs:
+            transferred_set = set(runs.read().splitlines())
+        return transferred_set
     else:
-        new_file = open(str(wkdir) + "transferred_runs.txt", "w")
-        new_file.close()
-
-    return transferred_dic
+        Path.touch(transferred_runs)
+        return {}
 
 
 def connect_to_remote_server(host_keys, server, user, run_file):
@@ -361,8 +359,8 @@ if __name__ == "__main__":
     """Check if mount to BGarray intact."""
     check_mount(settings.bgarray, run_file)
 
-    """ Make dictionairy of transferred_runs.txt file, or create transferred_runs.txt if not present """
-    transferred_dic = make_dictionary_runs(settings.wkdir)
+    """Make set of transferred_runs.txt file, or create transferred_runs.txt if not present."""
+    transferred_set = get_transferred_runs(settings.wkdir)
 
     """Get folders to be transfer from HPC."""
     client, hpc_server = connect_to_remote_server(settings.host_keys, settings.server, settings.user, run_file)
