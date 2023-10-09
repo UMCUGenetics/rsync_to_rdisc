@@ -355,23 +355,23 @@ def upload_exomedepth_vcf(run, run_folder):
 
 if __name__ == "__main__":
 
-    """ If daemon is running exit, else create transfer.running file and continue """
+    """If daemon is running exit, else create transfer.running file and continue."""
     run_file = check_daemon_running(settings.wkdir)
 
-    """ Check if mount to BGarray intact """
+    """Check if mount to BGarray intact."""
     check_mount(settings.bgarray, run_file)
 
     """ Make dictionairy of transferred_runs.txt file, or create transferred_runs.txt if not present """
     transferred_dic = make_dictionary_runs(settings.wkdir)
 
-    """ Get folders to be transfer from HPC """
+    """Get folders to be transfer from HPC."""
     client, hpc_server = connect_to_remote_server(settings.host_keys, settings.server, settings.user, run_file)
     to_be_transferred = get_folders_remote_server(client, settings.folder_dic, run_file)
 
     """Rsync folders from HPC to bgarray"""
     remove_run_file = rsync_server_remote(settings, hpc_server, client, to_be_transferred)
 
-    """ Remove run_file if transfer daemon shouldn't be blocked to prevent repeated mailing """
+    """Remove run_file if transfer daemon shouldn't be blocked to prevent repeated mailing."""
     if remove_run_file:
         os.remove(run_file)
 
