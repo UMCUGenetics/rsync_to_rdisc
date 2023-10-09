@@ -280,8 +280,8 @@ def test_check_if_upload_succesful(msg, expected):
 
 
 class TestUploadGatkVcf():
-    def side_effect_run_vcf_upload(self, value):
-        return value
+    def side_effect_run_vcf_upload(self, vcf_file, vcf_type, run):
+        return [vcf_file]
 
     @pytest.mark.parametrize("vcf_folder_key,expected", [
         ("empty_vcf_path", 0),
@@ -292,10 +292,10 @@ class TestUploadGatkVcf():
         vcf_folder = set_up_test[vcf_folder_key]
         mock_run_vcf_upload = mocker.patch("rsync_to_rdisc.run_vcf_upload", side_effect=self.side_effect_run_vcf_upload)
         mock_check = mocker.patch("rsync_to_rdisc.check_if_upload_successful")
-        run_folder = vcf_folder.parents[1]
+        run_folder = vcf_folder.parent
         upload_successful, upload_result = rsync_to_rdisc.upload_gatk_vcf(run_folder.stem, run_folder)
-        assert len(upload_result) == expected
-        assert mock_run_vcf_upload.call_count == expected
+        assert len(upload_result) == expected  # nr of vcfs uploaded
+        assert mock_run_vcf_upload.call_count == expected  # run_vcf_upload is called for each vcf
         mock_check.assert_called_once()
 
 
