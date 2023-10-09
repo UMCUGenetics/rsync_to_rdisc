@@ -282,14 +282,14 @@ def rsync_server_remote(settings, hpc_server, client, to_be_transferred):
 
 def run_vcf_upload(vcf_file, vcf_type, run):
     upload_vcf = subprocess.run(
-            (
-                f"source {settings.alissa_vcf_upload}/venv/bin/activate && "
-                f"python {settings.alissa_vcf_upload}/vcf_upload.py {vcf_file} '{vcf_type}' {run}"
-            ),
-            shell=True,
-            stdout=subprocess.PIPE,
-            encoding='UTF-8'
-        )
+        (
+            f"source {settings.alissa_vcf_upload}/venv/bin/activate && "
+            f"python {settings.alissa_vcf_upload}/vcf_upload.py {vcf_file} '{vcf_type}' {run}"
+        ),
+        shell=True,
+        stdout=subprocess.PIPE,
+        encoding='UTF-8'
+    )
     # Cleanup upload_vcf output: Strip and split on new line, remove empty strings from list
     upload_vcf_out = list(filter(None, upload_vcf.stdout.strip().split('\n')))
     return upload_vcf_out
