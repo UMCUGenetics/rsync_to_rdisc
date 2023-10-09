@@ -349,6 +349,6 @@ if __name__ == "__main__":
 
     """Remove run_file if transfer daemon shouldn't be blocked to prevent repeated mailing."""
     if remove_run_file:
-        os.remove(run_file)
+        Path.unlink(run_file)
 
     client.close()
