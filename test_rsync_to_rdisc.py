@@ -138,7 +138,8 @@ class TestConnectToRemoteServer():
             rsync_to_rdisc.connect_to_remote_server("host_keys", ["hpct04", "hpct05"], "user", set_up_test['run_file'])
         fake_ssh_client.load_host_keys.assert_called_once_with("host_keys")
         fake_ssh_client.load_system_host_keys.assert_called_once()
-        assert fake_ssh_client.connect.call_count <= 2 and fake_ssh_client.connect.call_count  # not 0 and max nr provided servers
+        # max nr provided servers and not 0
+        assert fake_ssh_client.connect.call_count <= 2 and fake_ssh_client.connect.call_count
 
     def test_raises_OSerror(self, mocker, set_up_test, mock_send_mail_lost_hpc, mock_sys_exit):
         fake_ssh_client = mocker.MagicMock()
@@ -213,7 +214,7 @@ class TestActionIfFileMissing():
         assert return_bool
 
     @pytest.mark.parametrize("folder,template,subject", [
-        ({"continue_without_email": False}, "transfer_notcomplete", "Analysis not complete"), 
+        ({"continue_without_email": False}, "transfer_notcomplete", "Analysis not complete"),
         ({}, "settings", "Unknown status"),
         ({"continue_without_email": "fake"}, "settings", "Unknown status")
     ])
