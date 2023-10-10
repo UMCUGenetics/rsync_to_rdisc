@@ -184,7 +184,9 @@ def action_if_file_missing(folder, remove_run_file, missing, run, folder_locatio
         return False
 
 
-def rsync_server_remote(hpc_server, client, to_be_transferred, run_file, log=settings.log, bgarray=settings.bgarray, wkdir=settings.wkdir):
+def rsync_server_remote(
+        hpc_server, client, to_be_transferred, run_file, log=settings.log, bgarray=settings.bgarray, wkdir=settings.wkdir
+):
     date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     remove_run_file = True
 
