@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import subprocess
 from pathlib import Path
 
 from paramiko import ssh_exception
@@ -302,10 +303,30 @@ class TestRsyncServerRemote():
         assert f"{analysis}_Exomes\tvcf_upload_error" in Path(set_up_test['tmp_path']/"transferred_runs.txt").read_text()
 
 
+def test_run_vcf_upload(mocker, set_up_test):
+    # Create MagicMock for subprocess.run
+    mock_subprocess = mocker.patch.object(subprocess, "run")
 
-    print(mock_subprocess.call_args_list)
-    mock_subprocess.run.assert_called_once()
-    command = mock_subprocess.run.call_args[0][1]
+    # Simulate the return value of subprocess.run
+    stdout = mocker.MagicMock()
+    # Set the stdout value according to what the subprocess should return
+    stdout.strip().split.return_value = ["passed", "done"]
+    # Set the created stdout as return value stdout of the mocked subprocess
+    mock_subprocess.return_value.stdout = stdout
+    # Simulate a successful execution, not a must to pass this test?
+    # mock_subprocess.return_value.returncode = 0
+
+    # Execute the rsync_to_rdisc.run_vcf_upload, this will use the mocked subprocess
+    out = rsync_to_rdisc.run_vcf_upload("fake.vcf", 'VCF_FILE', set_up_test["run"])
+
+    # Check if subprocess.run is called once
+    mock_subprocess.assert_called_once()
+
+    # For the check the command must be a string,
+    # mock_subprocess.call_args[0] is a tuple so join them in an empty string
+    command = ''.join(mock_subprocess.call_args[0])
+
+    # Perform other assertions based on your output (out) and subprocess behavior requirements
     required_strs = ["activate", "vcf_upload.py", "fake.vcf", 'VCF_FILE', set_up_test["run"]]
     assert all([required_str in command for required_str in required_strs])
     assert out == ["passed", "done"]
