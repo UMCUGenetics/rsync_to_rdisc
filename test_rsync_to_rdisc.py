@@ -140,7 +140,6 @@ class TestCheckRsync():
         assert rsync_result == "ok"
         assert not tmperror_empty.exists()
         assert "No errors detected" in bgarray_log.read_text()
-        # TODO: assert log message
 
     def test_temperror(self, mock_send_mail_transfer_state, set_up_test):
         bgarray_log = Path(f"{set_up_test['tmp_path']}/bgarray.log")
