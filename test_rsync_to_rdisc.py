@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from csv import writer
 import subprocess
 from pathlib import Path
 
@@ -9,33 +10,44 @@ import pytest
 import rsync_to_rdisc
 
 
+# TODO: split set_up_test
 @pytest.fixture(scope="session")
 def set_up_test(tmp_path_factory):
-    tmp_path = tmp_path_factory.mktemp("tmp")
-    # setup folder structure in tmpdir
-    run = "230920_A01131_0356_AHKM7VDRX3"
-    analysis = f"{run}_1"
+    """
+    Production folder structure set up is replicated with fake values.
+    There are a few analysis of run 230920_A01131_0356_AHKM7VDRX3.
+    1: everything ok.
+    2: incomplete, therefore missing several files such as workflow.done
+    3: single sample.
+    4: multi samples.
 
-    # fake files
+    All files required to manage behavior of rsync_to_rdisc are added to tmp_path, unless different location is required.
+    """
+    tmp_path = tmp_path_factory.mktemp("tmp")
+    # Setup folder structure in tmpdir
+    run = "230920_A01131_0356_AHKM7VDRX3"
+    analysis = f"{run}_1"  # run ok + exomedepth
+
+    # Fake files
     Path(tmp_path/"empty.error").touch()
     Path(tmp_path/"tmp.error").write_text("hello")
     Path(tmp_path/"bgarray.log").touch()
     run_file = tmp_path/"transfer.running"
     Path(run_file).touch()
-    Path(tmp_path/"transferred_runs.txt").write_text(analysis)
-    Path(tmp_path/"empty/").mkdir()
+    Path(tmp_path/"transferred_runs.txt").write_text(analysis)  # Other analysis will be added as part of the tests.
+    Path(tmp_path/"empty/").mkdir()  # Dir or subfiles have to stay empty.
 
-    # processed folder
-    for project in range(1, 5):
+    # Processed folder
+    for project in range(1, 6):
         processed_analysis = Path(tmp_path/f"processed/{run}_{project}")
-        for subdir in ["single_sample_vcf"]:
+        for subdir in ["single_sample_vcf", "exomedepth/HC", "QC/CNV/"]:
             Path(tmp_path/f"processed/{run}_{project}/{subdir}").mkdir(parents=True)
         if project != 2:
             Path(processed_analysis/"workflow.done").touch()
 
-    processed_run_dir = Path(tmp_path/f"processed/{run}_{1}")
+    processed_run_dir = Path(tmp_path/f"processed/{run}")
 
-    # single vcf folders
+    # Single vcf folders
     empty_vcf_path = Path(tmp_path/f"processed/{run}_2/single_sample_vcf/")
     single_vcf_path = Path(tmp_path/f"processed/{run}_3/single_sample_vcf/")
     multi_vcf_path = Path(tmp_path/f"processed/{run}_4/single_sample_vcf/")
@@ -43,8 +55,40 @@ def set_up_test(tmp_path_factory):
     Path(multi_vcf_path/"test_1.vcf").touch()
     Path(multi_vcf_path/"test_2.vcf").touch()
 
-    return {"tmp_path": tmp_path, "processed_run_dir": processed_run_dir, "run_file": run_file, "run": run, "analysis": analysis,
-            "empty_vcf_path": empty_vcf_path, "single_vcf_path": single_vcf_path, "multi_vcf_path": multi_vcf_path}
+    # CNV / ExomeDepth files
+    Path(tmp_path/f"processed/{run}_1/QC/CNV/{run}_1_exomedepth_summary.txt").write_text(
+        "U000000CF2023D00000;CM=HC;REFSET=RS-SSv7-2023-4;GENDER=female;CR=0.9900;PD=60.00;TC=95\tWARNING: chr Y in female."
+    )
+    Path(tmp_path/f"processed/{run}_2/QC/CNV/{run}_2_exomedepth_summary.txt").touch()
+    Path(tmp_path/f"processed/{run}_3/QC/CNV/{run}_3_exomedepth_summary.txt").write_text(
+        "U000000CF2023D00000;CM=HC;REFSET=RS-SSv7-2023-4;GENDER=female;CR=0.9900;PD=60.00;TC=95"
+    )
+
+    multi_sample_summary = Path(tmp_path/f"processed/{run}_4/QC/CNV/{run}_4_exomedepth_summary.txt")
+
+    with open(multi_sample_summary, 'a', newline='\n') as f:
+        file_writer = writer(f, delimiter='\t')
+        file_writer.writerows([
+            ["U000000CF2023D00001;CM=HC;REFSET=RS-SSv7-2023-4;GENDER=female;CR=0.9900;PD=60.00;TC=95"],
+            ["U000000CF2023D00002;CM=HC;REFSET=RS-SSv7-2023-4;GENDER=female;CR=0.9900;PD=60.00;TC=95"]
+        ])
+
+    # empty_hc_path = Path(tmp_path/f"processed/{run}_2/exomedepth/HC/")
+    single_hc_path = Path(tmp_path/f"processed/{run}_3/exomedepth/HC/")
+    multi_hc_path = Path(tmp_path/f"processed/{run}_4/exomedepth/HC/")
+    Path(single_hc_path/"test_U000000CF2023D00000.vcf").touch()
+    Path(multi_hc_path/"test_U000000CF2023D00001.vcf").touch()
+    Path(multi_hc_path/"test_U000000CF2023D00002.vcf").touch()
+
+    return {
+        "tmp_path": tmp_path, "processed_run_dir": processed_run_dir, "run_file": run_file, "run": run, 'analysis1': analysis,
+        "empty_vcf_path": empty_vcf_path, "single_vcf_path": single_vcf_path, "multi_vcf_path": multi_vcf_path
+    }
+
+
+@pytest.fixture(scope="class")
+def mock_check_upload(class_mocker):
+    return class_mocker.patch("rsync_to_rdisc.check_if_upload_successful")
 
 
 @pytest.fixture(scope="class")
@@ -77,12 +121,21 @@ def mock_sys_exit(class_mocker):
     return class_mocker.patch("rsync_to_rdisc.sys.exit")
 
 
+def side_effect_run_vcf_upload(vcf_file, vcf_type, run):
+    return [vcf_file]
+
+
+@pytest.fixture(scope="class")
+def mock_run_vcf_upload(class_mocker):
+    return class_mocker.patch("rsync_to_rdisc.run_vcf_upload", side_effect=side_effect_run_vcf_upload)
+
+
 class TestCheckRsync():
     def test_ok(self, set_up_test, mocker):
         bgarray_log = Path(set_up_test['tmp_path']/"bgarray.log")
         tmperror_empty = Path(set_up_test['tmp_path']/"empty.error")
         rsync_result = rsync_to_rdisc.check_rsync(
-            set_up_test['analysis'], "Exomes", tmperror_empty, bgarray_log
+            set_up_test['analysis1'], "Exomes", tmperror_empty, bgarray_log
         )
         assert rsync_result == "ok"
         assert not tmperror_empty.exists()
@@ -92,10 +145,10 @@ class TestCheckRsync():
     def test_temperror(self, mock_send_mail_transfer_state, set_up_test):
         bgarray_log = Path(f"{set_up_test['tmp_path']}/bgarray.log")
         rsync_result = rsync_to_rdisc.check_rsync(
-            set_up_test['analysis'], "Exomes", Path(set_up_test['tmp_path']/"tmp.error"), bgarray_log
+            set_up_test['analysis1'], "Exomes", Path(set_up_test['tmp_path']/"tmp.error"), bgarray_log
         )
         assert rsync_result == "error"
-        assert f"{set_up_test['analysis']}_Exomes errors detected" in bgarray_log.read_text()
+        assert f"{set_up_test['analysis1']}_Exomes errors detected" in bgarray_log.read_text()
         mock_send_mail_transfer_state.assert_called_once()
 
         # Reset all mocks
@@ -130,7 +183,7 @@ class TestCheckMount():
 class TestGetTransferredRuns():
     def test_get(self, set_up_test):
         transferred_runs = rsync_to_rdisc.get_transferred_runs(set_up_test['tmp_path'])
-        assert transferred_runs == {set_up_test['analysis']}
+        assert transferred_runs == {set_up_test['analysis1']}
 
     def test_empty_transferred_runs(self, set_up_test, mocker):
         mock_touch = mocker.patch("rsync_to_rdisc.Path.touch")
@@ -142,7 +195,7 @@ class TestGetTransferredRuns():
 class TestConnectToRemoteServer():
     def test_connect_ok(self, mocker, set_up_test):
         fake_ssh_client = mocker.MagicMock()
-        with mocker.patch("rsync_to_rdisc.SSHClient", return_value=fake_ssh_client):
+        with mocker.patch("rsync_to_rdisc.SSHClient", return_value=fake_ssh_client):  # TODO: raises warning, should change.
             rsync_to_rdisc.connect_to_remote_server("host_keys", ["hpct04", "hpct05"], "user", set_up_test['run_file'])
         fake_ssh_client.load_host_keys.assert_called_once_with("host_keys")
         fake_ssh_client.load_system_host_keys.assert_called_once()
@@ -152,7 +205,7 @@ class TestConnectToRemoteServer():
     def test_raises_OSerror(self, mocker, set_up_test, mock_send_mail_lost_hpc, mock_sys_exit):
         fake_ssh_client = mocker.MagicMock()
         fake_ssh_client.connect.side_effect = OSError
-        with mocker.patch("rsync_to_rdisc.SSHClient", return_value=fake_ssh_client):
+        with mocker.patch("rsync_to_rdisc.SSHClient", return_value=fake_ssh_client):  # TODO: raises warning, should change.
             rsync_to_rdisc.connect_to_remote_server("host_keys", ["hpct04"], "user", set_up_test['run_file'])
         mock_send_mail_lost_hpc.assert_called_once_with("hpct04", set_up_test['run_file'])
         mock_sys_exit.assert_called_once_with("Connection to HPC transfernodes are lost.")
@@ -165,7 +218,7 @@ class TestConnectToRemoteServer():
     def test_raises_errors(self, side, mocker, set_up_test, mock_path_unlink, mock_sys_exit):
         fake_ssh_client = mocker.MagicMock()
         fake_ssh_client.connect.side_effect = side
-        with mocker.patch("rsync_to_rdisc.SSHClient", return_value=fake_ssh_client):
+        with mocker.patch("rsync_to_rdisc.SSHClient", return_value=fake_ssh_client):  # TODO: raises warning, should change.
             rsync_to_rdisc.connect_to_remote_server("host_keys", ["hpct04"], "user", set_up_test['run_file'])
         mock_sys_exit.assert_called_once_with("HPC connection timeout/SSHException/AuthenticationException")
         mock_path_unlink.assert_called_with(set_up_test['run_file'])
@@ -183,7 +236,7 @@ class TestGetFoldersRemoteServer():
         client = mocker.MagicMock()
         client.exec_command.return_value = "", stdout, ""
         rsync_to_rdisc.get_folders_remote_server(
-            client, {"Exomes": {"input": ""}}, set_up_test['run_file'], {set_up_test['analysis']}
+            client, {"Exomes": {"input": ""}}, set_up_test['run_file'], {set_up_test['analysis1']}
         )
 
     @pytest.mark.parametrize("side", [ConnectionResetError, TimeoutError])
@@ -192,7 +245,7 @@ class TestGetFoldersRemoteServer():
         client.exec_command.side_effect = side
         with pytest.raises(SystemExit) as system_error:
             rsync_to_rdisc.get_folders_remote_server(
-                client, {"Exomes": {"input": ""}}, set_up_test['run_file'], {set_up_test['analysis']}
+                client, {"Exomes": {"input": ""}}, set_up_test['run_file'], {set_up_test['analysis1']}
             )
         mock_path_unlink.assert_called_with(set_up_test['run_file'])
         assert system_error.type == SystemExit
@@ -210,14 +263,14 @@ class TestCheckIfFileMissing():
         client = mocker.MagicMock()
         client.exec_command.return_value = "", stdout, ""
         # how to test client.exec_command?
-        missing = rsync_to_rdisc.check_if_file_missing(["workflow.done"], set_up_test['processed_run_dir'], client)
+        missing = rsync_to_rdisc.check_if_file_missing(["workflow.done"], f"{set_up_test['processed_run_dir']}_1", client)
         assert missing == expected
 
 
 class TestActionIfFileMissing():
     def test_without_email(self, set_up_test):
         return_bool = rsync_to_rdisc.action_if_file_missing(
-            {"continue_without_email": True}, True, "", set_up_test['analysis'], "Exomes", set_up_test["run_file"]
+            {"continue_without_email": True}, True, "", set_up_test['analysis1'], "Exomes", set_up_test['run_file']
         )
         assert return_bool
 
@@ -228,7 +281,7 @@ class TestActionIfFileMissing():
     ])
     def test_with_email(self, folder, template, subject, set_up_test, mock_send_mail_incomplete):
         return_bool = rsync_to_rdisc.action_if_file_missing(
-            folder, True, "", set_up_test['analysis'], "Exomes", set_up_test["run_file"]
+            folder, True, "", set_up_test['analysis1'], "Exomes", set_up_test['run_file']
         )
         mock_send_mail_incomplete.assert_called_once()
         assert template == mock_send_mail_incomplete.call_args[0][1]
@@ -317,7 +370,7 @@ def test_run_vcf_upload(mocker, set_up_test):
     # mock_subprocess.return_value.returncode = 0
 
     # Execute the rsync_to_rdisc.run_vcf_upload, this will use the mocked subprocess
-    out = rsync_to_rdisc.run_vcf_upload("fake.vcf", 'VCF_FILE', set_up_test["run"])
+    out = rsync_to_rdisc.run_vcf_upload("fake.vcf", 'VCF_FILE', set_up_test['analysis1'])
 
     # Check if subprocess.run is called once
     mock_subprocess.assert_called_once()
@@ -327,7 +380,7 @@ def test_run_vcf_upload(mocker, set_up_test):
     command = ''.join(mock_subprocess.call_args[0])
 
     # Perform other assertions based on your output (out) and subprocess behavior requirements
-    required_strs = ["activate", "vcf_upload.py", "fake.vcf", 'VCF_FILE', set_up_test["run"]]
+    required_strs = ["activate", "vcf_upload.py", "fake.vcf", 'VCF_FILE', set_up_test['analysis1']]
     assert all([required_str in command for required_str in required_strs])
     assert out == ["passed", "done"]
 
@@ -344,24 +397,58 @@ def test_check_if_upload_succesful(msg, expected):
 
 
 class TestUploadGatkVcf():
-    def side_effect_run_vcf_upload(self, vcf_file, vcf_type, run):
-        return [vcf_file]
-
     @pytest.mark.parametrize("vcf_folder_key,expected", [
         ("empty_vcf_path", 0),
         ("single_vcf_path", 1),
         ("multi_vcf_path", 2),
     ])
-    def test_no_vcf(self, set_up_test, vcf_folder_key, expected, mocker):
+    def test_no_vcf(self, set_up_test, vcf_folder_key, expected, mock_run_vcf_upload, mock_check_upload):
         vcf_folder = set_up_test[vcf_folder_key]
-        mock_run_vcf_upload = mocker.patch("rsync_to_rdisc.run_vcf_upload", side_effect=self.side_effect_run_vcf_upload)
-        mock_check = mocker.patch("rsync_to_rdisc.check_if_upload_successful")
         run_folder = vcf_folder.parent
         upload_successful, upload_result = rsync_to_rdisc.upload_gatk_vcf(run_folder.stem, run_folder)
+
         assert len(upload_result) == expected  # nr of vcfs uploaded
         assert mock_run_vcf_upload.call_count == expected  # run_vcf_upload is called for each vcf
-        mock_check.assert_called_once()
+        mock_check_upload.assert_called_once()
+
+        mock_run_vcf_upload.reset_mock()
+        mock_check_upload.reset_mock()
 
 
 class TestUploadExomedepthVcf():
-    pass
+    def test_ok(self, set_up_test, mock_run_vcf_upload, mock_check_upload):
+        upload_succes, upload_result = rsync_to_rdisc.upload_exomedepth_vcf(
+            f"{set_up_test['run']}_3", f"{set_up_test['processed_run_dir']}_3"
+        )
+
+        test_vcf = f"{set_up_test['processed_run_dir']}_3/exomedepth/HC/test_U000000CF2023D00000.vcf"
+        mock_run_vcf_upload.assert_called_once_with(test_vcf, 'UMCU CNV VCF v1', set_up_test['run'])
+        mock_check_upload.assert_called_once_with([test_vcf])
+        assert upload_succes
+
+        mock_run_vcf_upload.reset_mock()
+        mock_check_upload.reset_mock()
+
+    def test_ok_multi(self, set_up_test, mock_run_vcf_upload, mock_check_upload):
+        upload_succes, upload_result = rsync_to_rdisc.upload_exomedepth_vcf(
+            f"{set_up_test['run']}_4", f"{set_up_test['processed_run_dir']}_4"
+        )
+
+        test_vcf_1 = f"{set_up_test['processed_run_dir']}_4/exomedepth/HC/test_U000000CF2023D00001.vcf"
+        test_vcf_2 = f"{set_up_test['processed_run_dir']}_4/exomedepth/HC/test_U000000CF2023D00002.vcf"
+        assert mock_run_vcf_upload.call_count == 2
+        mock_run_vcf_upload.assert_any_call(test_vcf_1, 'UMCU CNV VCF v1', set_up_test['run'])
+        mock_run_vcf_upload.assert_any_call(test_vcf_2, 'UMCU CNV VCF v1', set_up_test['run'])
+        mock_check_upload.assert_called_once_with([test_vcf_1, test_vcf_2])
+        assert upload_succes
+
+        mock_run_vcf_upload.reset_mock()
+        mock_check_upload.reset_mock()
+
+    def test_warning(self, set_up_test):
+        upload_succes, upload_result = rsync_to_rdisc.upload_exomedepth_vcf(
+            f"{set_up_test['run']}_1", f"{set_up_test['processed_run_dir']}_1"
+        )
+        assert upload_succes
+        assert "not uploaded" in upload_result[0]
+        assert "WARNING" in upload_result[0]
