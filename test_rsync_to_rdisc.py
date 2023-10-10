@@ -228,15 +228,15 @@ class TestConnectToRemoteServer():
 
 
 class TestGetFoldersRemoteServer():
-    # TODO: finish test_ok
     def test_ok(self, set_up_test, mocker):
         stdout = mocker.MagicMock()
-        stdout.read().decode("utf8").split.return_value = ["1", "2"]
+        stdout.read().decode("utf8").split.return_value = ["analysis1", "analysis2"]
         client = mocker.MagicMock()
         client.exec_command.return_value = "", stdout, ""
-        rsync_to_rdisc.get_folders_remote_server(
+        to_transfer = rsync_to_rdisc.get_folders_remote_server(
             client, {"Exomes": {"input": ""}}, set_up_test['run_file'], {set_up_test['analysis1']}
         )
+        assert to_transfer == {'analysis1': 'Exomes', 'analysis2': 'Exomes'}
 
     @pytest.mark.parametrize("side", [ConnectionResetError, TimeoutError])
     def test_errors(self, side, set_up_test, mocker, mock_path_unlink):
