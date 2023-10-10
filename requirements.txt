@@ -1,3 +1,2 @@
-paramiko==2.10.4
-Jinja2==3.0.3
-cryptography==36.0.2
+# Mirrors prod
+-r requirements/prod.txt
