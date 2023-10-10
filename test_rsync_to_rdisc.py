@@ -14,7 +14,7 @@ import rsync_to_rdisc
 @pytest.fixture(scope="session")
 def set_up_test(tmp_path_factory):
     """
-    Production folder structure set up is replicated with fake values.
+    Production folder structure is replicated with fake values.
     There are a few analysis of run 230920_A01131_0356_AHKM7VDRX3.
     1: everything ok.
     2: incomplete, therefore missing several files such as workflow.done
