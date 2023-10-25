@@ -15,6 +15,8 @@ user = ""
 
 
 """Mail finished transfer"""
+email_smtp_host = "smtp-open.umcutrecht.nl"
+email_smtp_port = 25
 email_from = ""
 email_to = ["", ""]
 
