@@ -156,8 +156,9 @@ class TestCheckRsync():
 
 class TestCheckDaemonRunning():
     def test_new_file(self, set_up_test):
-        rsync_to_rdisc.check_daemon_running(f"{set_up_test['tmp_path']}/empty/")
+        out = rsync_to_rdisc.check_daemon_running(f"{set_up_test['tmp_path']}/empty/")
         assert Path(f"{set_up_test['tmp_path']}/empty/transfer.running").exists()
+        assert out == Path(f"{set_up_test['tmp_path']}/empty/transfer.running")
 
     def test_file_exists(self, set_up_test, mock_sys_exit):
         rsync_to_rdisc.check_daemon_running(set_up_test['tmp_path'])

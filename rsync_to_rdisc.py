@@ -92,7 +92,9 @@ def check_rsync(run, folder, temperror, log):
 
 def check_daemon_running(wkdir):
     try:
-        Path(f"{wkdir}/transfer.running").touch(exist_ok=False)
+        run_file = Path(f"{wkdir}/transfer.running")
+        run_file.touch(exist_ok=False)
+        return run_file
     except FileExistsError:
         sys.exit()
 
