@@ -173,7 +173,7 @@ class TestCheckMount():
 
     def test_lost_mount(self, set_up_test, mock_send_mail_lost_mount, mock_sys_exit):
         rsync_to_rdisc.check_mount("fake_path", set_up_test['run_file'])
-        mock_send_mail_lost_mount.assert_called_once()
+        mock_send_mail_lost_mount.assert_called_once_with(set_up_test['run_file'])
         mock_sys_exit.assert_called_once()
         # Reset mock
         mock_send_mail_lost_mount.reset_mock()

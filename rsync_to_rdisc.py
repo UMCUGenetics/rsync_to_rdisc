@@ -101,7 +101,7 @@ def check_daemon_running(wkdir):
 
 def check_mount(bgarray, run_file):
     if not Path(bgarray).exists():
-        send_mail_lost_mount("mount", "lost_mount", run_file=run_file)
+        send_mail_lost_mount(run_file)
         sys.exit()
 
 
