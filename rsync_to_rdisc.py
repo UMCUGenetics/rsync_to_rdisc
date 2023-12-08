@@ -76,7 +76,7 @@ def send_mail_incomplete(run, title_template, subject, run_file):
 def check_rsync(run, folder, temperror, log):
     if not Path(temperror).stat().st_size:
         msg_bgarray_log = [[""], [">>> No errors detected <<<"]]
-        Path.unlink(temperror)  # remove tmperror file.
+        Path(temperror).unlink()  # remove tmperror file.
         rsync_result = "ok"
     else:
         msg_bgarray_log = [
@@ -130,7 +130,7 @@ def connect_to_remote_server(host_keys, servers, user, run_file):
                 sys.exit("Connection to HPC transfernodes are lost.")
         except (timeout, ssh_exception.SSHException, ssh_exception.AuthenticationException):
             if hpc_server == servers[-1]:
-                Path.unlink(run_file)
+                Path(run_file).unlink()
                 sys.exit("HPC connection timeout/SSHException/AuthenticationException")
     return client, hpc_server
 
@@ -141,7 +141,7 @@ def get_folders_remote_server(client, folder_dic, run_file, transferred_set):
         try:
             stdin, stdout, stderr = client.exec_command("ls {}".format(folder_dic[folder]["input"]))
         except (ConnectionResetError, TimeoutError):
-            Path.unlink(run_file)
+            Path(run_file).unlink()
             sys.exit("HPC connection ConnectionResetError/TimeoutError")
 
         folders = stdout.read().decode("utf8").split()
@@ -351,6 +351,6 @@ if __name__ == "__main__":
 
     """Remove run_file if transfer daemon shouldn't be blocked to prevent repeated mailing."""
     if remove_run_file:
-        Path.unlink(run_file)
+        Path(run_file).unlink()
 
     client.close()

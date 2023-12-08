@@ -93,7 +93,7 @@ def mock_check_upload(class_mocker):
 
 @pytest.fixture(scope="class")
 def mock_path_unlink(class_mocker):
-    return class_mocker.patch("rsync_to_rdisc.Path.unlink")
+    return class_mocker.patch("rsync_to_rdisc.Path.unlink", autospec=True)
 
 
 @pytest.fixture(scope="class")
@@ -221,7 +221,7 @@ class TestConnectToRemoteServer():
         with mocker.patch("rsync_to_rdisc.SSHClient", return_value=fake_ssh_client):  # TODO: raises warning, should change.
             rsync_to_rdisc.connect_to_remote_server("host_keys", ["hpct04"], "user", set_up_test['run_file'])
         mock_sys_exit.assert_called_once_with("HPC connection timeout/SSHException/AuthenticationException")
-        mock_path_unlink.assert_called_with(set_up_test['run_file'])
+        mock_path_unlink.assert_called_once_with(Path(set_up_test['run_file']))
 
         # Reset
         mock_path_unlink.reset_mock()
@@ -247,7 +247,7 @@ class TestGetFoldersRemoteServer():
             rsync_to_rdisc.get_folders_remote_server(
                 client, {"Exomes": {"input": ""}}, set_up_test['run_file'], {set_up_test['analysis1']}
             )
-        mock_path_unlink.assert_called_with(set_up_test['run_file'])
+        mock_path_unlink.assert_called_once_with(Path(set_up_test['run_file']))
         assert system_error.type == SystemExit
         assert str(system_error.value) == "HPC connection ConnectionResetError/TimeoutError"
 
@@ -313,7 +313,7 @@ class TestRsyncServerRemote():
         )
         mock_check.assert_called_once()
         mock_os_system.assert_called_once()
-        mock_check_rsync.assert_called_once
+        mock_check_rsync.assert_called_once()
         mock_send_mail_transfer_state.assert_called_once()
         mock_send_mail_transfer_state.reset_mock()
         assert f"{set_up_test['run']}_3_Genomes\tok" in Path(set_up_test['tmp_path']/"transferred_runs.txt").read_text()
