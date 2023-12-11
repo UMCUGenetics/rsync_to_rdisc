@@ -109,7 +109,9 @@ def get_transferred_runs(wkdir):
     transferred_runs = Path(f"{wkdir}/transferred_runs.txt")
     if transferred_runs.is_file():
         with open(transferred_runs, 'r') as runs:
-            transferred_set = set(runs.read().splitlines())
+            transferred_set = set()
+            for transferred_run_state in set(runs.read().splitlines()):
+                transferred_set.add(transferred_run_state.split("\t")[0])  # remove state
         return transferred_set
     else:
         Path.touch(transferred_runs)
