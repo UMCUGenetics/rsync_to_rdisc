@@ -62,4 +62,12 @@ folder_dic = {
         "upload_gatk_vcf": False,
         "upload_exomedepth_vcf": False,
     },
+    "RNAseq": {
+        "input": "/hpc/diaggen/data/upload/RNAseq/",
+        "output": "{}/Illumina/Research_Dx/Transcriptomes/UMCU_hg38/".format(bgarray),
+        "files_required": [""],
+        "continue_without_email": False,
+        "upload_gatk_vcf": False,
+        "upload_exomedepth_vcf": False,
+    },
 }
