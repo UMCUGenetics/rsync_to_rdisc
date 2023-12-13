@@ -50,11 +50,13 @@ def send_mail_lost_hpc(hpc_host, run_file):
 
 def send_mail_transfer_state(filename, state, upload_result_gatk=None, upload_result_exomedepth=None):
     body_params = {"filename": filename}
-    if state == "ok" or state == "vcf_upload_error":
+    if state in ["ok", "vcf_upload_error", "vcf_upload_warning"]:
         if state == "ok":
             subject = f"COMPLETED: Transfer to BGarray has succesfully completed for {filename}"
         elif state == "vcf_upload_error":
             subject = f"ERROR: Transfer to BGarray has completed with VCF upload error for {filename}"
+        elif state == "vcf_upload_warning":
+            subject = f"COMPLETED: Transfer to BGarray has completed with VCF upload warning for {filename}"
         template = "transfer_ok.html"
         body_params.update({
             "upload_result_gatk": upload_result_gatk,
@@ -232,20 +234,15 @@ def rsync_server_remote(
             email_state = rsync_result
 
             if folder['upload_gatk_vcf']:
-                upload_successful, upload_result_gatk = upload_gatk_vcf(
-                    run=run,
-                    run_folder="{output}/{run}".format(output=folder["output"], run=run)
-                )
-                if not upload_successful:
-                    email_state = "vcf_upload_error"
+                upload_state, upload_result_gatk = upload_gatk_vcf(run, f"{folder['output']}/{run}")
+                if upload_state != "ok":
+                    email_state = f"vcf_upload_{upload_state}"  # warning or error
 
             if folder['upload_exomedepth_vcf']:
-                upload_successful, upload_result_exomedepth = upload_exomedepth_vcf(
-                    run=run,
-                    run_folder="{output}/{run}".format(output=folder["output"], run=run)
-                )
-                if not upload_successful:
-                    email_state = "vcf_upload_error"
+                upload_state, upload_result_exomedepth = upload_exomedepth_vcf(run, f"{folder['output']}/{run}")
+                # to avoid email_state 'vcf_upload_error' to become a 'vcf_upload_warning'
+                if upload_state != "ok" and email_state != "vcf_upload_error":
+                    email_state = f"vcf_upload_{upload_state}"
 
             send_mail_transfer_state(
                 filename="{}{}".format(folder["input"], run),
@@ -275,11 +272,13 @@ def run_vcf_upload(vcf_file, vcf_type, run):
     return upload_vcf_out
 
 
-def check_if_upload_successful(upload_result):
+def get_upload_state(upload_result):
     for msg in upload_result:
         if 'error' in msg.lower():
-            return False
-    return True
+            return 'error'
+        elif 'warning' in msg.lower():
+            return 'warning'
+    return 'ok'
 
 
 def upload_gatk_vcf(run, run_folder):
@@ -291,9 +290,9 @@ def upload_gatk_vcf(run, run_folder):
         if output_vcf_upload:
             upload_result.extend(output_vcf_upload)
 
-    upload_successful = check_if_upload_successful(upload_result)
+    upload_state = get_upload_state(upload_result)  # error, warning or ok.
 
-    return upload_successful, upload_result
+    return upload_state, upload_result
 
 
 def upload_exomedepth_vcf(run, run_folder):
@@ -328,9 +327,9 @@ def upload_exomedepth_vcf(run, run_folder):
             if output_vcf_upload:
                 upload_result.extend(output_vcf_upload)
 
-    upload_successful = check_if_upload_successful(upload_result)
+    upload_state = get_upload_state(upload_result)  # error, warning or ok.
 
-    return upload_successful, upload_result
+    return upload_state, upload_result
 
 
 if __name__ == "__main__":
