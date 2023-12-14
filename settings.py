@@ -15,7 +15,7 @@ user = ""
 
 
 """Mail finished transfer"""
-email_smtp_host = "smtp-open.umcutrecht.nl"
+email_smtp_host = "pim.umcutrecht.nl"
 email_smtp_port = 25
 email_from = ""
 email_to = ["", ""]
@@ -43,30 +43,6 @@ folder_dic = {
         "output": "{}/Illumina/Genomes/".format(bgarray),
         "files_required": ["workflow.done"],
         "continue_without_email": False,
-        "upload_gatk_vcf": False,
-        "upload_exomedepth_vcf": False,
-    },
-    "MIPS": {
-        "input": "/hpc/diaggen/data/upload/MIPS/",
-        "output": "{}/Illumina/MIPS/".format(bgarray),
-        "files_required": ["workflow.done"],
-        "continue_without_email": False,
-        "upload_gatk_vcf": False,
-        "upload_exomedepth_vcf": False,
-    },
-    "RAW_data_MIPS_nextseq_umc01": {
-        "input": "/hpc/diaggen/data/upload/RAW_data_MIPS/nextseq_umc01/",
-        "output": "{}/RAW_data/MIPS/".format(bgarray),
-        "files_required": ["TransferDone.txt"],
-        "continue_without_email": True,
-        "upload_gatk_vcf": False,
-        "upload_exomedepth_vcf": False,
-    },
-    "RAW_data_MIPS_nextseq_umc02": {
-        "input": "/hpc/diaggen/data/upload/RAW_data_MIPS/nextseq_umc02/",
-        "output": "{}/RAW_data/MIPS/".format(bgarray),
-        "files_required": ["TransferDone.txt"],
-        "continue_without_email": True,
         "upload_gatk_vcf": False,
         "upload_exomedepth_vcf": False,
     },
