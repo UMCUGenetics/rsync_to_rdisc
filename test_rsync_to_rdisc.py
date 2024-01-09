@@ -86,9 +86,9 @@ def set_up_test(tmp_path_factory):
     }
 
 
-@pytest.fixture(scope="class")
-def mock_check_upload(class_mocker):
-    return class_mocker.patch("rsync_to_rdisc.check_if_upload_successful")
+@pytest.fixture(scope="function")
+def mock_get_upload_state(mocker):
+    return mocker.patch("rsync_to_rdisc.get_upload_state")
 
 
 @pytest.fixture(scope="class")
@@ -329,12 +329,17 @@ class TestRsyncServerRemote():
         assert f"{set_up_test['run']}_3_Exomes" not in Path(set_up_test['tmp_path']/"transferred_runs.txt").read_text()
 
     # parametrize gatk/ed error and no errors.
-    @pytest.mark.parametrize("project,gatk_succes,ed_succes", [
-        ("5", True, False),
-        ("6", False, True),
-        ("7", False, False)
+    @pytest.mark.parametrize("project,gatk_succes,ed_succes,state", [
+        ("5", "ok", "error", "vcf_upload_error"),
+        ("6", "error", "ok", "vcf_upload_error"),
+        ("7", "error", "error", "vcf_upload_error"),
+        ("5", "ok", "warning", "vcf_upload_warning"),
+        ("6", "warning", "ok", "vcf_upload_warning"),
+        ("7", "warning", "warning", "vcf_upload_warning"),
+        ("5", "warning", "error", "vcf_upload_error"),
+        ("6", "error", "warning", "vcf_upload_error"),
     ])
-    def test_vcf_upload(self, project, gatk_succes, ed_succes, set_up_test, mocker, mock_send_mail_transfer_state):
+    def test_vcf_upload_error(self, project, gatk_succes, ed_succes, set_up_test, mocker, mock_send_mail_transfer_state):
         analysis = f"{set_up_test['run']}_{project}"
         mocker.patch("rsync_to_rdisc.check_if_file_missing", return_value=[])
         mocker.patch("rsync_to_rdisc.os.system")
@@ -386,14 +391,17 @@ def test_run_vcf_upload(mocker, set_up_test):
 
 
 @pytest.mark.parametrize("msg,expected", [
-    (["error"], False),
-    (["Error"], False),
-    (["vcf_upload_error"], False),
-    (["ok"], True)
+    (["error"], "error"),
+    (["Error"], "error"),
+    (["vcf_upload_error"], "error"),
+    (["warning"], "warning"),
+    (["Warning"], "warning"),
+    (["vcf_upload_warning"], "warning"),
+    (["ok"], "ok")
    ])
-def test_check_if_upload_succesful(msg, expected):
-    return_bool = rsync_to_rdisc.check_if_upload_successful(msg)
-    assert return_bool == expected
+def test_get_upload_state(msg, expected):
+    return_state = rsync_to_rdisc.get_upload_state(msg)
+    assert return_state == expected
 
 
 class TestUploadGatkVcf():
@@ -402,35 +410,34 @@ class TestUploadGatkVcf():
         ("single_vcf_path", 1),
         ("multi_vcf_path", 2),
     ])
-    def test_no_vcf(self, set_up_test, vcf_folder_key, expected, mock_run_vcf_upload, mock_check_upload):
+    def test_no_vcf(self, set_up_test, vcf_folder_key, expected, mock_run_vcf_upload, mock_get_upload_state):
         vcf_folder = set_up_test[vcf_folder_key]
         run_folder = vcf_folder.parent
-        upload_successful, upload_result = rsync_to_rdisc.upload_gatk_vcf(run_folder.stem, run_folder)
+        upload_state, upload_result = rsync_to_rdisc.upload_gatk_vcf(run_folder.stem, run_folder)
 
         assert len(upload_result) == expected  # nr of vcfs uploaded
         assert mock_run_vcf_upload.call_count == expected  # run_vcf_upload is called for each vcf
-        mock_check_upload.assert_called_once()
+        mock_get_upload_state.assert_called_once()
 
         mock_run_vcf_upload.reset_mock()
-        mock_check_upload.reset_mock()
+        mock_get_upload_state.reset_mock()
 
 
 class TestUploadExomedepthVcf():
-    def test_ok(self, set_up_test, mock_run_vcf_upload, mock_check_upload):
-        upload_succes, upload_result = rsync_to_rdisc.upload_exomedepth_vcf(
+    def test_ok(self, set_up_test, mock_run_vcf_upload, mock_get_upload_state):
+        upload_state, upload_result = rsync_to_rdisc.upload_exomedepth_vcf(
             f"{set_up_test['run']}_3", f"{set_up_test['processed_run_dir']}_3"
         )
 
         test_vcf = f"{set_up_test['processed_run_dir']}_3/exomedepth/HC/test_U000000CF2023D00000.vcf"
         mock_run_vcf_upload.assert_called_once_with(test_vcf, 'UMCU CNV VCF v1', set_up_test['run'])
-        mock_check_upload.assert_called_once_with([test_vcf])
-        assert upload_succes
+        mock_get_upload_state.assert_called_once_with([test_vcf])
 
         mock_run_vcf_upload.reset_mock()
-        mock_check_upload.reset_mock()
+        mock_get_upload_state.reset_mock()
 
-    def test_ok_multi(self, set_up_test, mock_run_vcf_upload, mock_check_upload):
-        upload_succes, upload_result = rsync_to_rdisc.upload_exomedepth_vcf(
+    def test_ok_multi(self, set_up_test, mock_run_vcf_upload):
+        upload_state, upload_result = rsync_to_rdisc.upload_exomedepth_vcf(
             f"{set_up_test['run']}_4", f"{set_up_test['processed_run_dir']}_4"
         )
 
@@ -439,16 +446,14 @@ class TestUploadExomedepthVcf():
         assert mock_run_vcf_upload.call_count == 2
         mock_run_vcf_upload.assert_any_call(test_vcf_1, 'UMCU CNV VCF v1', set_up_test['run'])
         mock_run_vcf_upload.assert_any_call(test_vcf_2, 'UMCU CNV VCF v1', set_up_test['run'])
-        mock_check_upload.assert_called_once_with([test_vcf_1, test_vcf_2])
-        assert upload_succes
+        assert upload_state == "ok"
 
         mock_run_vcf_upload.reset_mock()
-        mock_check_upload.reset_mock()
 
     def test_warning(self, set_up_test):
-        upload_succes, upload_result = rsync_to_rdisc.upload_exomedepth_vcf(
+        upload_state, upload_result = rsync_to_rdisc.upload_exomedepth_vcf(
             f"{set_up_test['run']}_1", f"{set_up_test['processed_run_dir']}_1"
         )
-        assert upload_succes
+        assert upload_state == "warning"
         assert "not uploaded" in upload_result[0]
         assert "WARNING" in upload_result[0]
