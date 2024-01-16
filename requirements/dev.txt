@@ -1,0 +1,7 @@
+# Mirror production requirements
+-r prod.txt
+# Add dev specific packages
+pytest==7.0.1
+pytest-cov==4.0.0
+pytest-mock==3.6.1
+pytest-raises==0.11
