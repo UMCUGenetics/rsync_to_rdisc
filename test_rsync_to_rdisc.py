@@ -339,7 +339,7 @@ class TestRsyncServerRemote():
         ("5", "warning", "error", "vcf_upload_error"),
         ("6", "error", "warning", "vcf_upload_error"),
     ])
-    def test_vcf_upload_error(self, project, gatk_succes, ed_succes, set_up_test, mocker, mock_send_mail_transfer_state):
+    def test_vcf_upload_error(self, project, gatk_succes, ed_succes, state, set_up_test, mocker, mock_send_mail_transfer_state):
         analysis = f"{set_up_test['run']}_{project}"
         mocker.patch("rsync_to_rdisc.check_if_file_missing", return_value=[])
         mocker.patch("rsync_to_rdisc.os.system")
@@ -353,12 +353,12 @@ class TestRsyncServerRemote():
         )
         mock_send_mail_transfer_state.assert_called_once_with(
             filename=f'/hpc/diaggen/data/upload/Exomes/{analysis}',
-            state='vcf_upload_error',
+            state=state,
             upload_result_gatk="",
             upload_result_exomedepth="",
         )
         mock_send_mail_transfer_state.reset_mock()
-        assert f"{analysis}_Exomes\tvcf_upload_error" in Path(set_up_test['tmp_path']/"transferred_runs.txt").read_text()
+        assert f"{analysis}_Exomes\t{state}" in Path(set_up_test['tmp_path']/"transferred_runs.txt").read_text()
 
 
 def test_run_vcf_upload(mocker, set_up_test):
