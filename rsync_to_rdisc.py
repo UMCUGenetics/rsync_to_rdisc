@@ -254,9 +254,9 @@ def rsync_server_remote(
                 upload_result_exomedepth=upload_result_exomedepth
             )
             # Do not include run in transferred_runs.txt if temp error file is not empty.
-            with open(f"{wkdir}/transferred_runs.txt", 'a', newline='\n') as log_file:
-                log_file_writer = writer(log_file, delimiter='\t')
-                log_file_writer.writerow([f"{run}_{folder_location_type}", email_state])
+            with open(f"{wkdir}/transferred_runs.txt", 'a', newline='\n') as transferred_file:
+                file_writer = writer(transferred_file, delimiter='\t')
+                file_writer.writerow([f"{run}_{folder_location_type}", email_state])
     return remove_run_file
 
 
