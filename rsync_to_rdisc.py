@@ -202,7 +202,7 @@ def rsync_server_remote(
     for run in to_be_transferred:
         with open(f"{bgarray}/{log}", 'a', newline='\n') as log_file:
             log_file_writer = writer(log_file, delimiter='\t')
-            log_file_writer.writerows([["#########"], [f"Date: {date}", f"Run_folder: {run}"]])
+            log_file_writer.writerows([["#########"], [f"Date: {date}"], [f"Run_folder: {run}"]])
         folder_location_type = to_be_transferred[run]
         # Settings per folder data type, such as remote input dir and local output dir, etc.
         folder = folder_dic[folder_location_type]
