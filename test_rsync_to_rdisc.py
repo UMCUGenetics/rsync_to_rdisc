@@ -339,7 +339,9 @@ class TestRsyncServerRemote():
         ("5", "warning", "error", "vcf_upload_error"),
         ("6", "error", "warning", "vcf_upload_error"),
     ])
-    def test_vcf_upload_error(self, project, gatk_succes, ed_succes, state, set_up_test, mocker, mock_send_mail_transfer_state):
+    def test_vcf_upload_error(
+        self, project, gatk_succes, ed_succes, state, set_up_test, mocker, mock_send_mail_transfer_state
+    ):
         analysis = f"{set_up_test['run']}_{project}"
         mocker.patch("rsync_to_rdisc.check_if_file_missing", return_value=[])
         mocker.patch("rsync_to_rdisc.os.system")
