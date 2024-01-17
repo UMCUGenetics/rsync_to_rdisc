@@ -6,12 +6,12 @@ name: rsync_to_rdisc
 on:
   push:
     branches:
-      - main
-      - develop
+      - master
+      - development
   pull_request:
     branches:
-      - main
-      - develop
+      - master
+      - development
 
 jobs:
   build:
