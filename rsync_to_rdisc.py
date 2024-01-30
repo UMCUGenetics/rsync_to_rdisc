@@ -147,9 +147,9 @@ def connect_to_remote_server(host_keys, servers, user, run_file):
     return client, hpc_server
 
 
-def get_folders_remote_server(client, mount_transfer_settings, run_file, transferred_set):
+def get_folders_remote_server(client, transfers, run_file, transferred_set):
     to_be_transferred = {}
-    for transfer in mount_transfer_settings['transfers']:
+    for transfer in transfers:
         try:
             stdin, stdout, stderr = client.exec_command("ls {}".format(transfer["input"]))
         except (ConnectionResetError, TimeoutError):
@@ -366,7 +366,7 @@ if __name__ == "__main__":
             # Get folders to be transferred
             to_be_transferred = get_folders_remote_server(
                 client,
-                settings.transfer_settings[mount_name],
+                settings.transfer_settings[mount_name]['transfers'],
                 run_file,
                 transferred_set
             )
@@ -375,6 +375,9 @@ if __name__ == "__main__":
             rsync_succes = rsync_server_remote(hpc_server, client, to_be_transferred, mount_path, run_file)
             if not rsync_succes:
                 remove_run_file = False
+        else:  # Mount not available block upcoming transfers
+            # TODO: Do we want this?
+            remove_run_file = False
 
     # Remove run_file if transfer daemon shouldn't be blocked to prevent repeated mailing.
     if remove_run_file:
