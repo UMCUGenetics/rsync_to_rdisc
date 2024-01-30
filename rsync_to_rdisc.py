@@ -179,7 +179,7 @@ def check_if_file_missing(required_files, input_folder, client):
     return missing
 
 
-def action_if_file_missing(transfer_settings, remove_run_file, missing, run, folder_location, run_file):
+def action_if_file_missing(transfer_settings, rsync_succes, missing, run, run_file):
     # Send a mail and lock datatransfer
     if not isinstance(transfer_settings.get('continue_without_email', None), bool):
         reason = "Unknown status {0}: {1} in settings.py for {2}".format(
@@ -191,12 +191,12 @@ def action_if_file_missing(transfer_settings, remove_run_file, missing, run, fol
         return False
     # Do not send a mail and do not lock datatransfer
     elif 'continue_without_email' in transfer_settings and transfer_settings["continue_without_email"]:
-        return remove_run_file
+        return rsync_succes
     # Send a mail and lock datatransfer
     elif 'continue_without_email' in transfer_settings and not transfer_settings["continue_without_email"]:
         reason = (
             "Analysis not complete (file(s) {0} missing). "
-            "Run = {1} in folder {2} ".format(" and ".join(missing), run, folder_location))
+            "Run = {1} in folder {2} ".format(" and ".join(missing), run, transfer_settings["input"]))
         send_mail_incomplete(run, "transfer_notcomplete", reason, run_file)
         return False
 
@@ -215,6 +215,7 @@ def rsync_server_remote(hpc_server, client, to_be_transferred, mount_path, run_f
         missing = check_if_file_missing(transfer_settings["files_required"], f"{transfer_settings['input']}/{run}", client)
 
         if missing:
+            print(transfer_settings, rsync_succes, missing, run, run_file)
             rsync_succes = action_if_file_missing(transfer_settings, rsync_succes, missing, run, run_file)
             continue  # don't transfer the run if a required file is missing.
         os.system((
