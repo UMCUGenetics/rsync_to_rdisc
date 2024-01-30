@@ -72,6 +72,15 @@ transfer_settings = {
                 "upload_gatk_vcf": False,
                 "upload_exomedepth_vcf": False,
             },
+            {
+                "name": "RNAseq",
+                "input": "/hpc/diaggen/data/upload/RNAseq/",
+                "output": "Illumina/Research_Dx/Transcriptomes/UMCU_hg38/",
+                "files_required": [""],
+                "continue_without_email": False,
+                "upload_gatk_vcf": False,
+                "upload_exomedepth_vcf": False,
+            },
         ]
     },
     "glims": {
