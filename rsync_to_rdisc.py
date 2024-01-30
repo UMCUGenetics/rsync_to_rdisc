@@ -54,18 +54,18 @@ def send_mail_transfer_state(filename, state, upload_result_gatk=None, upload_re
     body_params = {"filename": filename}
     if state in ["ok", "vcf_upload_error", "vcf_upload_warning"]:
         if state == "ok":
-            subject = f"COMPLETED: Transfer to BGarray has succesfully completed for {filename}"
+            subject = f"COMPLETED: Transfer has successfully completed for {filename}"
         elif state == "vcf_upload_error":
-            subject = f"ERROR: Transfer to BGarray has completed with VCF upload error for {filename}"
+            subject = f"ERROR: Transfer has completed with VCF upload error for {filename}"
         elif state == "vcf_upload_warning":
-            subject = f"COMPLETED: Transfer to BGarray has completed with VCF upload warning for {filename}"
+            subject = f"COMPLETED: Transfer has completed with VCF upload warning for {filename}"
         template = "transfer_ok.html"
         body_params.update({
             "upload_result_gatk": upload_result_gatk,
             "upload_result_exomedepth": upload_result_exomedepth
         })
     elif state == "error":
-        subject = f"ERROR: Transfer to BGarray has not completed for {filename}"
+        subject = f"ERROR: Transfer has not completed for {filename}"
         template = "transfer_error.html"
     send_email(subject, template, body_params)
 
