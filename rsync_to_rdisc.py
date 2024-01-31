@@ -108,10 +108,19 @@ def check_daemon_running(wkdir):
 
 
 def is_mount_available(mount_name, mount_path, run_file):
-    if not Path(mount_path).exists():
+    is_available = True
+    try:
+        Path(mount_path).exists()
+    except (OSError, BlockingIOError):
+        is_available = False
+    else:
+        if not Path(mount_path).exists():
+            is_available = False
+
+    # Send email if mount is not available
+    if not is_available:
         send_mail_lost_mount(mount_name, run_file)
-        return False
-    return True
+    return is_available
 
 
 def get_transferred_runs(wkdir):
