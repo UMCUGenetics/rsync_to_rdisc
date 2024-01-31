@@ -47,6 +47,7 @@ def set_up_test(tmp_path_factory):
     analysis_transfer_settings = rsync_to_rdisc.settings.transfer_settings['bgarray']['transfers'][0]
     Path(f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt").write_text(analysis)  # Other analysis will be added as part of the tests.
 
+
     # Processed folder
     for project in range(1, 6):
         processed_analysis = Path(tmp_path/f"processed/{run}_{project}")
@@ -298,170 +299,174 @@ class TestActionIfFileMissing():
         mock_send_mail_incomplete.reset_mock()
 
 
-# class TestRsyncServerRemote():
-#     def test_missing_file(self, set_up_test, mocker):
-#         mock_check = mocker.patch("rsync_to_rdisc.check_if_file_missing", return_value=["workflow.done"])
-#         mock_action = mocker.patch("rsync_to_rdisc.action_if_file_missing", return_value=False)
-#         rsync_to_rdisc.rsync_server_remote(
-#             "hpct04", "client", {f"{set_up_test['run']}_2": "Exomes"}, set_up_test['run_file'],
-#             "bgarray.log", set_up_test['tmp_path']
-#         )
-#         mock_check.assert_called_once()
-#         assert mock_check.call_args[0][0] == ["workflow.done"]
-#         assert f"{set_up_test['run']}_2" in mock_check.call_args[0][1]
-#         mock_action.assert_called_once()
+class TestRsyncServerRemote():
+    def test_missing_file(self, set_up_test, mocker):
+        mock_check = mocker.patch("rsync_to_rdisc.check_if_file_missing", return_value=["workflow.done"])
+        mock_action = mocker.patch("rsync_to_rdisc.action_if_file_missing", return_value=False)
+        rsync_to_rdisc.rsync_server_remote(
+            "hpct04", "client",
+            {f"{set_up_test['run']}_2": rsync_to_rdisc.settings.transfer_settings['bgarray']['transfers'][0]},
+            set_up_test['tmp_path'], f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt",
+        )
+        mock_check.assert_called_once()
+        assert mock_check.call_args[0][0] == ["workflow.done"]
+        assert f"{set_up_test['run']}_2" in mock_check.call_args[0][1]
+        mock_action.assert_called_once()
 
-#     def test_rsync_ok(self, set_up_test, mocker, mock_send_mail_transfer_state):
-#         mock_check = mocker.patch("rsync_to_rdisc.check_if_file_missing", return_value=[])
-#         mock_os_system = mocker.patch("rsync_to_rdisc.os.system")
-#         mock_check_rsync = mocker.patch("rsync_to_rdisc.check_rsync", return_value="ok")
-#         rsync_to_rdisc.rsync_server_remote(
-#             "hpct04", "client", {f"{set_up_test['run']}_3": "Genomes"}, set_up_test['run_file'],
-#             log="bgarray.log", bgarray=set_up_test['tmp_path'], wkdir=set_up_test['tmp_path']
-#         )
-#         mock_check.assert_called_once()
-#         mock_os_system.assert_called_once()
-#         mock_check_rsync.assert_called_once()
-#         mock_send_mail_transfer_state.assert_called_once()
-#         mock_send_mail_transfer_state.reset_mock()
-#         assert f"{set_up_test['run']}_3_Genomes\tok" in Path(set_up_test['tmp_path']/"transferred_runs.txt").read_text()
+    def test_rsync_ok(self, set_up_test, mocker, mock_send_mail_transfer_state):
+        mock_check = mocker.patch("rsync_to_rdisc.check_if_file_missing", return_value=[])
+        mock_os_system = mocker.patch("rsync_to_rdisc.os.system")
+        mock_check_rsync = mocker.patch("rsync_to_rdisc.check_rsync", return_value="ok")
+        rsync_to_rdisc.rsync_server_remote(
+            "hpct04", "client",
+            {f"{set_up_test['run']}_3": rsync_to_rdisc.settings.transfer_settings['bgarray']['transfers'][2]},
+            set_up_test['tmp_path'], f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt",
+        )
+        mock_check.assert_called_once()
+        mock_os_system.assert_called_once()
+        mock_check_rsync.assert_called_once()
+        mock_send_mail_transfer_state.assert_called_once()
+        mock_send_mail_transfer_state.reset_mock()
+        assert f"{set_up_test['run']}_3_TRANSFER\tok" in Path(f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt").read_text()
 
-#     def test_rsync_error(self, set_up_test, mocker, mock_send_mail_transfer_state):
-#         mocker.patch("rsync_to_rdisc.check_if_file_missing", return_value=[])
-#         mocker.patch("rsync_to_rdisc.os.system")
-#         mocker.patch("rsync_to_rdisc.check_rsync", return_value="error")
-#         rsync_to_rdisc.rsync_server_remote(
-#             "hpct04", "client", {f"{set_up_test['run']}_3": "Exomes"}, set_up_test['run_file'],
-#             log="bgarray.log", bgarray=set_up_test['tmp_path'], wkdir=set_up_test['tmp_path']
-#         )
-#         assert f"{set_up_test['run']}_3_Exomes" not in Path(set_up_test['tmp_path']/"transferred_runs.txt").read_text()
+    def test_rsync_error(self, set_up_test, mocker, mock_send_mail_transfer_state):
+        mocker.patch("rsync_to_rdisc.check_if_file_missing", return_value=[])
+        mocker.patch("rsync_to_rdisc.os.system")
+        mocker.patch("rsync_to_rdisc.check_rsync", return_value="error")
+        rsync_to_rdisc.rsync_server_remote(
+            "hpct04", "client",
+            {f"{set_up_test['run']}_3": rsync_to_rdisc.settings.transfer_settings['bgarray']['transfers'][0]},
+            set_up_test['tmp_path'], f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt",
+        )
+        assert f"{set_up_test['run']}_3_Exomes" not in Path(f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt").read_text()
 
-#     # parametrize gatk/ed error and no errors.
-#     @pytest.mark.parametrize("project,gatk_succes,ed_succes,state", [
-#         ("5", "ok", "error", "vcf_upload_error"),
-#         ("6", "error", "ok", "vcf_upload_error"),
-#         ("7", "error", "error", "vcf_upload_error"),
-#         ("5", "ok", "warning", "vcf_upload_warning"),
-#         ("6", "warning", "ok", "vcf_upload_warning"),
-#         ("7", "warning", "warning", "vcf_upload_warning"),
-#         ("5", "warning", "error", "vcf_upload_error"),
-#         ("6", "error", "warning", "vcf_upload_error"),
-#     ])
-#     def test_vcf_upload_error(self, project, gatk_succes, ed_succes, state, set_up_test, mocker, mock_send_mail_transfer_state):
-#         analysis = f"{set_up_test['run']}_{project}"
-#         mocker.patch("rsync_to_rdisc.check_if_file_missing", return_value=[])
-#         mocker.patch("rsync_to_rdisc.os.system")
-#         mocker.patch("rsync_to_rdisc.check_rsync", return_value="ok")
-#         mocker.patch("rsync_to_rdisc.upload_gatk_vcf", return_value=(gatk_succes, ""))
-#         mocker.patch("rsync_to_rdisc.upload_exomedepth_vcf", return_value=(ed_succes, ""))
+    # parametrize GATK / ExomeDepth error and no errors.
+    @pytest.mark.parametrize("project,gatk_succes,ed_succes,state", [
+        ("5", "ok", "error", "vcf_upload_error"),
+        ("6", "error", "ok", "vcf_upload_error"),
+        ("7", "error", "error", "vcf_upload_error"),
+        ("5", "ok", "warning", "vcf_upload_warning"),
+        ("6", "warning", "ok", "vcf_upload_warning"),
+        ("7", "warning", "warning", "vcf_upload_warning"),
+        ("5", "warning", "error", "vcf_upload_error"),
+        ("6", "error", "warning", "vcf_upload_error"),
+    ])
+    def test_vcf_upload_error(self, project, gatk_succes, ed_succes, state, set_up_test, mocker, mock_send_mail_transfer_state):
+        analysis = f"{set_up_test['run']}_{project}"
+        mocker.patch("rsync_to_rdisc.check_if_file_missing", return_value=[])
+        mocker.patch("rsync_to_rdisc.os.system")
+        mocker.patch("rsync_to_rdisc.check_rsync", return_value="ok")
+        mocker.patch("rsync_to_rdisc.upload_gatk_vcf", return_value=(gatk_succes, ""))
+        mocker.patch("rsync_to_rdisc.upload_exomedepth_vcf", return_value=(ed_succes, ""))
 
-#         rsync_to_rdisc.rsync_server_remote(
-#             "hpct04", "client", {f"{analysis}": "Exomes"}, set_up_test['run_file'],
-#             log="bgarray.log", bgarray=set_up_test['tmp_path'], wkdir=set_up_test['tmp_path']
-#         )
-#         mock_send_mail_transfer_state.assert_called_once_with(
-#             filename=f'/hpc/diaggen/data/upload/Exomes/{analysis}',
-#             state=state,
-#             upload_result_gatk="",
-#             upload_result_exomedepth="",
-#         )
-#         mock_send_mail_transfer_state.reset_mock()
-#         assert f"{analysis}_Exomes\t{state}" in Path(set_up_test['tmp_path']/"transferred_runs.txt").read_text()
-
-
-# def test_run_vcf_upload(mocker, set_up_test):
-#     # Create MagicMock for subprocess.run
-#     mock_subprocess = mocker.patch.object(subprocess, "run")
-
-#     # Simulate the return value of subprocess.run
-#     stdout = mocker.MagicMock()
-#     # Set the stdout value according to what the subprocess should return
-#     stdout.strip().split.return_value = ["passed", "done"]
-#     # Set the created stdout as return value stdout of the mocked subprocess
-#     mock_subprocess.return_value.stdout = stdout
-#     # Simulate a successful execution, not a must to pass this test?
-#     # mock_subprocess.return_value.returncode = 0
-
-#     # Execute the rsync_to_rdisc.run_vcf_upload, this will use the mocked subprocess
-#     out = rsync_to_rdisc.run_vcf_upload("fake.vcf", 'VCF_FILE', set_up_test['analysis1'])
-
-#     # Check if subprocess.run is called once
-#     mock_subprocess.assert_called_once()
-
-#     # For the check the command must be a string,
-#     # mock_subprocess.call_args[0] is a tuple so join them in an empty string
-#     command = ''.join(mock_subprocess.call_args[0])
-
-#     # Perform other assertions based on your output (out) and subprocess behavior requirements
-#     required_strs = ["activate", "vcf_upload.py", "fake.vcf", 'VCF_FILE', set_up_test['analysis1']]
-#     assert all([required_str in command for required_str in required_strs])
-#     assert out == ["passed", "done"]
+        rsync_to_rdisc.rsync_server_remote(
+            "hpct04", "client",
+            {f"{analysis}": rsync_to_rdisc.settings.transfer_settings['bgarray']['transfers'][0]},
+            set_up_test['tmp_path'], f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt",
+        )
+        mock_send_mail_transfer_state.assert_called_once_with(
+            filename=f'/hpc/diaggen/data/upload/Exomes/{analysis}',
+            state=state,
+            upload_result_gatk="",
+            upload_result_exomedepth="",
+        )
+        mock_send_mail_transfer_state.reset_mock()
+        assert f"{analysis}_Exomes\t{state}" in Path(f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt").read_text()
 
 
-# @pytest.mark.parametrize("msg,expected", [
-#     (["error"], "error"),
-#     (["Error"], "error"),
-#     (["vcf_upload_error"], "error"),
-#     (["warning"], "warning"),
-#     (["Warning"], "warning"),
-#     (["vcf_upload_warning"], "warning"),
-#     (["ok"], "ok")
-#    ])
-# def test_get_upload_state(msg, expected):
-#     return_state = rsync_to_rdisc.get_upload_state(msg)
-#     assert return_state == expected
+def test_run_vcf_upload(mocker, set_up_test):
+    # Create MagicMock for subprocess.run
+    mock_subprocess = mocker.patch.object(subprocess, "run")
+
+    # Simulate the return value of subprocess.run
+    stdout = mocker.MagicMock()
+    # Set the stdout value according to what the subprocess should return
+    stdout.strip().split.return_value = ["passed", "done"]
+    # Set the created stdout as return value stdout of the mocked subprocess
+    mock_subprocess.return_value.stdout = stdout
+    # Simulate a successful execution, not a must to pass this test?
+    # mock_subprocess.return_value.returncode = 0
+
+    # Execute the rsync_to_rdisc.run_vcf_upload, this will use the mocked subprocess
+    out = rsync_to_rdisc.run_vcf_upload("fake.vcf", 'VCF_FILE', set_up_test['analysis1'])
+
+    # Check if subprocess.run is called once
+    mock_subprocess.assert_called_once()
+
+    # For the check the command must be a string,
+    # mock_subprocess.call_args[0] is a tuple so join them in an empty string
+    command = ''.join(mock_subprocess.call_args[0])
+
+    # Perform other assertions based on your output (out) and subprocess behavior requirements
+    required_strs = ["activate", "vcf_upload.py", "fake.vcf", 'VCF_FILE', set_up_test['analysis1']]
+    assert all([required_str in command for required_str in required_strs])
+    assert out == ["passed", "done"]
 
 
-# class TestUploadGatkVcf():
-#     @pytest.mark.parametrize("vcf_folder_key,expected", [
-#         ("empty_vcf_path", 0),
-#         ("single_vcf_path", 1),
-#         ("multi_vcf_path", 2),
-#     ])
-#     def test_no_vcf(self, set_up_test, vcf_folder_key, expected, mock_run_vcf_upload, mock_get_upload_state):
-#         vcf_folder = set_up_test[vcf_folder_key]
-#         run_folder = vcf_folder.parent
-#         upload_state, upload_result = rsync_to_rdisc.upload_gatk_vcf(run_folder.stem, run_folder)
-
-#         assert len(upload_result) == expected  # nr of vcfs uploaded
-#         assert mock_run_vcf_upload.call_count == expected  # run_vcf_upload is called for each vcf
-#         mock_get_upload_state.assert_called_once()
-
-#         mock_run_vcf_upload.reset_mock()
-#         mock_get_upload_state.reset_mock()
+@pytest.mark.parametrize("msg,expected", [
+    (["error"], "error"),
+    (["Error"], "error"),
+    (["vcf_upload_error"], "error"),
+    (["warning"], "warning"),
+    (["Warning"], "warning"),
+    (["vcf_upload_warning"], "warning"),
+    (["ok"], "ok")
+])
+def test_get_upload_state(msg, expected):
+    return_state = rsync_to_rdisc.get_upload_state(msg)
+    assert return_state == expected
 
 
-# class TestUploadExomedepthVcf():
-#     def test_ok(self, set_up_test, mock_run_vcf_upload, mock_get_upload_state):
-#         upload_state, upload_result = rsync_to_rdisc.upload_exomedepth_vcf(
-#             f"{set_up_test['run']}_3", f"{set_up_test['processed_run_dir']}_3"
-#         )
+class TestUploadGatkVcf():
+    @pytest.mark.parametrize("vcf_folder_key,expected", [
+        ("empty_vcf_path", 0),
+        ("single_vcf_path", 1),
+        ("multi_vcf_path", 2),
+    ])
+    def test_no_vcf(self, set_up_test, vcf_folder_key, expected, mock_run_vcf_upload, mock_get_upload_state):
+        vcf_folder = set_up_test[vcf_folder_key]
+        run_folder = vcf_folder.parent
+        upload_state, upload_result = rsync_to_rdisc.upload_gatk_vcf(run_folder.stem, run_folder)
 
-#         test_vcf = f"{set_up_test['processed_run_dir']}_3/exomedepth/HC/test_U000000CF2023D00000.vcf"
-#         mock_run_vcf_upload.assert_called_once_with(test_vcf, 'UMCU CNV VCF v1', set_up_test['run'])
-#         mock_get_upload_state.assert_called_once_with([test_vcf])
+        assert len(upload_result) == expected  # nr of vcfs uploaded
+        assert mock_run_vcf_upload.call_count == expected  # run_vcf_upload is called for each vcf
+        mock_get_upload_state.assert_called_once()
 
-#         mock_run_vcf_upload.reset_mock()
-#         mock_get_upload_state.reset_mock()
+        mock_run_vcf_upload.reset_mock()
+        mock_get_upload_state.reset_mock()
 
-#     def test_ok_multi(self, set_up_test, mock_run_vcf_upload):
-#         upload_state, upload_result = rsync_to_rdisc.upload_exomedepth_vcf(
-#             f"{set_up_test['run']}_4", f"{set_up_test['processed_run_dir']}_4"
-#         )
 
-#         test_vcf_1 = f"{set_up_test['processed_run_dir']}_4/exomedepth/HC/test_U000000CF2023D00001.vcf"
-#         test_vcf_2 = f"{set_up_test['processed_run_dir']}_4/exomedepth/HC/test_U000000CF2023D00002.vcf"
-#         assert mock_run_vcf_upload.call_count == 2
-#         mock_run_vcf_upload.assert_any_call(test_vcf_1, 'UMCU CNV VCF v1', set_up_test['run'])
-#         mock_run_vcf_upload.assert_any_call(test_vcf_2, 'UMCU CNV VCF v1', set_up_test['run'])
-#         assert upload_state == "ok"
+class TestUploadExomedepthVcf():
+    def test_ok(self, set_up_test, mock_run_vcf_upload, mock_get_upload_state):
+        upload_state, upload_result = rsync_to_rdisc.upload_exomedepth_vcf(
+            f"{set_up_test['run']}_3", f"{set_up_test['processed_run_dir']}_3"
+        )
 
-#         mock_run_vcf_upload.reset_mock()
+        test_vcf = f"{set_up_test['processed_run_dir']}_3/exomedepth/HC/test_U000000CF2023D00000.vcf"
+        mock_run_vcf_upload.assert_called_once_with(test_vcf, 'UMCU CNV VCF v1', set_up_test['run'])
+        mock_get_upload_state.assert_called_once_with([test_vcf])
 
-#     def test_warning(self, set_up_test):
-#         upload_state, upload_result = rsync_to_rdisc.upload_exomedepth_vcf(
-#             f"{set_up_test['run']}_1", f"{set_up_test['processed_run_dir']}_1"
-#         )
-#         assert upload_state == "warning"
-#         assert "not uploaded" in upload_result[0]
-#         assert "WARNING" in upload_result[0]
+        mock_run_vcf_upload.reset_mock()
+        mock_get_upload_state.reset_mock()
+
+    def test_ok_multi(self, set_up_test, mock_run_vcf_upload):
+        upload_state, upload_result = rsync_to_rdisc.upload_exomedepth_vcf(
+            f"{set_up_test['run']}_4", f"{set_up_test['processed_run_dir']}_4"
+        )
+
+        test_vcf_1 = f"{set_up_test['processed_run_dir']}_4/exomedepth/HC/test_U000000CF2023D00001.vcf"
+        test_vcf_2 = f"{set_up_test['processed_run_dir']}_4/exomedepth/HC/test_U000000CF2023D00002.vcf"
+        assert mock_run_vcf_upload.call_count == 2
+        mock_run_vcf_upload.assert_any_call(test_vcf_1, 'UMCU CNV VCF v1', set_up_test['run'])
+        mock_run_vcf_upload.assert_any_call(test_vcf_2, 'UMCU CNV VCF v1', set_up_test['run'])
+        assert upload_state == "ok"
+
+        mock_run_vcf_upload.reset_mock()
+
+    def test_warning(self, set_up_test):
+        upload_state, upload_result = rsync_to_rdisc.upload_exomedepth_vcf(
+            f"{set_up_test['run']}_1", f"{set_up_test['processed_run_dir']}_1"
+        )
+        assert upload_state == "warning"
+        assert "not uploaded" in upload_result[0]
+        assert "WARNING" in upload_result[0]

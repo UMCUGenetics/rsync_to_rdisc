@@ -266,6 +266,7 @@ def rsync_server_remote(hpc_server, client, to_be_transferred, mount_path, run_f
             with open(f"{settings.wkdir}/transferred_runs.txt", 'a', newline='\n') as log_file:
                 log_file_writer = writer(log_file, delimiter='\t')
                 log_file_writer.writerow([f"{run}_{transfer_settings['name']}", email_state])
+
     return rsync_succes
 
 
