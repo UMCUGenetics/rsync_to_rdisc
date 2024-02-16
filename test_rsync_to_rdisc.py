@@ -11,7 +11,7 @@ import rsync_to_rdisc
 
 
 # TODO: split set_up_test
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="class")
 def set_up_test(tmp_path_factory):
     """
     Production folder structure is replicated with fake values.
