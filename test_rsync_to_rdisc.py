@@ -11,7 +11,7 @@ import rsync_to_rdisc
 
 
 # TODO: split set_up_test
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="class")
 def set_up_test(tmp_path_factory):
     """
     Production folder structure is replicated with fake values.
@@ -24,18 +24,29 @@ def set_up_test(tmp_path_factory):
     All files required to manage behavior of rsync_to_rdisc are added to tmp_path, unless different location is required.
     """
     tmp_path = tmp_path_factory.mktemp("tmp")
-    # Setup folder structure in tmpdir
+
+    # Setup settings
+    rsync_to_rdisc.settings.wkdir = f"{tmp_path}/wkdir"
+    rsync_to_rdisc.settings.temp_error_path = f"{rsync_to_rdisc.settings.wkdir}/temp.error"
+    rsync_to_rdisc.settings.log_path = f"{rsync_to_rdisc.settings.wkdir}/Rsync_Dx.log"
+    rsync_to_rdisc.settings.errorlog_path = f"{rsync_to_rdisc.settings.wkdir}/Rsync_Dx.errorlog"
+
+    # Setup wkdir files
+    Path(rsync_to_rdisc.settings.wkdir).mkdir()
+    Path(rsync_to_rdisc.settings.temp_error_path).touch()
+    Path(f"{rsync_to_rdisc.settings.wkdir}/temp_not_empty.error").write_text("hello")  # non empty temp error
+    Path(rsync_to_rdisc.settings.log_path).touch()
+    run_file = f"{rsync_to_rdisc.settings.wkdir}/transfer.running"
+    Path(run_file).touch()
+
+    Path(f"{tmp_path}/empty/").mkdir()  # Dir or subfiles have to stay empty.
+
+    # Setup Analysis
     run = "230920_A01131_0356_AHKM7VDRX3"
     analysis = f"{run}_1"  # run ok + exomedepth
+    analysis_transfer_settings = rsync_to_rdisc.settings.transfer_settings['bgarray']['transfers'][0]
+    Path(f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt").write_text(analysis)  # Other analysis will be added as part of the tests.
 
-    # Fake files
-    Path(tmp_path/"empty.error").touch()
-    Path(tmp_path/"tmp.error").write_text("hello")
-    Path(tmp_path/"bgarray.log").touch()
-    run_file = tmp_path/"transfer.running"
-    Path(run_file).touch()
-    Path(tmp_path/"transferred_runs.txt").write_text(analysis)  # Other analysis will be added as part of the tests.
-    Path(tmp_path/"empty/").mkdir()  # Dir or subfiles have to stay empty.
 
     # Processed folder
     for project in range(1, 6):
@@ -82,7 +93,8 @@ def set_up_test(tmp_path_factory):
 
     return {
         "tmp_path": tmp_path, "processed_run_dir": processed_run_dir, "run_file": run_file, "run": run, 'analysis1': analysis,
-        "empty_vcf_path": empty_vcf_path, "single_vcf_path": single_vcf_path, "multi_vcf_path": multi_vcf_path
+        "analysis1_transfer_settings": analysis_transfer_settings, "empty_vcf_path": empty_vcf_path,
+        "single_vcf_path": single_vcf_path, "multi_vcf_path": multi_vcf_path
     }
 
 
@@ -132,22 +144,20 @@ def mock_run_vcf_upload(class_mocker):
 
 class TestCheckRsync():
     def test_ok(self, set_up_test, mocker):
-        bgarray_log = Path(set_up_test['tmp_path']/"bgarray.log")
-        tmperror_empty = Path(set_up_test['tmp_path']/"empty.error")
         rsync_result = rsync_to_rdisc.check_rsync(
-            set_up_test['analysis1'], "Exomes", tmperror_empty, bgarray_log
+            set_up_test['analysis1'], set_up_test['analysis1_transfer_settings']
         )
         assert rsync_result == "ok"
-        assert not tmperror_empty.exists()
-        assert "No errors detected" in bgarray_log.read_text()
+        assert not Path(rsync_to_rdisc.settings.temp_error_path).exists()
+        assert "No errors detected" in Path(rsync_to_rdisc.settings.log_path).read_text()
 
     def test_temperror(self, mock_send_mail_transfer_state, set_up_test):
-        bgarray_log = Path(f"{set_up_test['tmp_path']}/bgarray.log")
+        rsync_to_rdisc.settings.temp_error_path = f"{rsync_to_rdisc.settings.wkdir}/temp_not_empty.error"
         rsync_result = rsync_to_rdisc.check_rsync(
-            set_up_test['analysis1'], "Exomes", Path(set_up_test['tmp_path']/"tmp.error"), bgarray_log
+            set_up_test['analysis1'], set_up_test['analysis1_transfer_settings']
         )
         assert rsync_result == "error"
-        assert f"{set_up_test['analysis1']}_Exomes errors detected" in bgarray_log.read_text()
+        assert f"{set_up_test['analysis1']}_Exomes errors detected" in Path(rsync_to_rdisc.settings.log_path).read_text()
         mock_send_mail_transfer_state.assert_called_once()
 
         # Reset all mocks
@@ -161,20 +171,19 @@ class TestCheckDaemonRunning():
         assert out == Path(f"{set_up_test['tmp_path']}/empty/transfer.running")
 
     def test_file_exists(self, set_up_test, mock_sys_exit):
-        rsync_to_rdisc.check_daemon_running(set_up_test['tmp_path'])
+        rsync_to_rdisc.check_daemon_running(rsync_to_rdisc.settings.wkdir)
         mock_sys_exit.assert_called_once()
         mock_sys_exit.reset_mock()
 
 
-class TestCheckMount():
+class TestIsMountAvailable():
     def test_mount_exists(self, set_up_test, mock_send_mail_lost_mount):
-        rsync_to_rdisc.check_mount(set_up_test['tmp_path'], set_up_test['run_file'])
+        assert rsync_to_rdisc.is_mount_available('bgarray', set_up_test['tmp_path'], set_up_test['run_file'])
         mock_send_mail_lost_mount.assert_not_called()
 
     def test_lost_mount(self, set_up_test, mock_send_mail_lost_mount, mock_sys_exit):
-        rsync_to_rdisc.check_mount("fake_path", set_up_test['run_file'])
-        mock_send_mail_lost_mount.assert_called_once_with(set_up_test['run_file'])
-        mock_sys_exit.assert_called_once()
+        assert not rsync_to_rdisc.is_mount_available('bgarray', 'fake_path', set_up_test['run_file'])
+        mock_send_mail_lost_mount.assert_called_once_with('bgarray', set_up_test['run_file'])
         # Reset mock
         mock_send_mail_lost_mount.reset_mock()
         mock_sys_exit.reset_mock()
@@ -182,7 +191,7 @@ class TestCheckMount():
 
 class TestGetTransferredRuns():
     def test_get(self, set_up_test):
-        transferred_runs = rsync_to_rdisc.get_transferred_runs(set_up_test['tmp_path'])
+        transferred_runs = rsync_to_rdisc.get_transferred_runs(rsync_to_rdisc.settings.wkdir)
         assert transferred_runs == {set_up_test['analysis1']}
 
     def test_empty_transferred_runs(self, set_up_test, mocker):
@@ -208,7 +217,7 @@ class TestConnectToRemoteServer():
         with mocker.patch("rsync_to_rdisc.SSHClient", return_value=fake_ssh_client):  # TODO: raises warning, should change.
             rsync_to_rdisc.connect_to_remote_server("host_keys", ["hpct04"], "user", set_up_test['run_file'])
         mock_send_mail_lost_hpc.assert_called_once_with("hpct04", set_up_test['run_file'])
-        mock_sys_exit.assert_called_once_with("Connection to HPC transfernodes are lost.")
+        mock_sys_exit.assert_called_once_with("Connection to HPC transfer nodes are lost.")
         # Reset
         mock_send_mail_lost_hpc.reset_mock()
         mock_sys_exit.reset_mock()
@@ -235,9 +244,9 @@ class TestGetFoldersRemoteServer():
         client = mocker.MagicMock()
         client.exec_command.return_value = "", stdout, ""
         to_transfer = rsync_to_rdisc.get_folders_remote_server(
-            client, {"Exomes": {"input": ""}}, set_up_test['run_file'], {set_up_test['analysis1']}
+            client, [{"name": "Exomes", "input": ""}], set_up_test['run_file'], {set_up_test['analysis1']}
         )
-        assert to_transfer == {'analysis1': 'Exomes', 'analysis2': 'Exomes'}
+        assert to_transfer == {'analysis1': {"name": "Exomes", "input": ""}, 'analysis2': {"name": "Exomes", "input": ""}}
 
     @pytest.mark.parametrize("side", [ConnectionResetError, TimeoutError])
     def test_errors(self, side, set_up_test, mocker, mock_path_unlink):
@@ -245,7 +254,7 @@ class TestGetFoldersRemoteServer():
         client.exec_command.side_effect = side
         with pytest.raises(SystemExit) as system_error:
             rsync_to_rdisc.get_folders_remote_server(
-                client, {"Exomes": {"input": ""}}, set_up_test['run_file'], {set_up_test['analysis1']}
+                client, [{"name": "Exomes", "input": ""}], set_up_test['run_file'], {set_up_test['analysis1']}
             )
         mock_path_unlink.assert_called_once_with(Path(set_up_test['run_file']))
         assert system_error.type == SystemExit
@@ -270,18 +279,18 @@ class TestCheckIfFileMissing():
 class TestActionIfFileMissing():
     def test_without_email(self, set_up_test):
         return_bool = rsync_to_rdisc.action_if_file_missing(
-            {"continue_without_email": True}, True, "", set_up_test['analysis1'], "Exomes", set_up_test['run_file']
+            {"continue_without_email": True}, True, "", set_up_test['analysis1'], set_up_test['run_file']
         )
         assert return_bool
 
     @pytest.mark.parametrize("folder,template,subject", [
-        ({"continue_without_email": False}, "transfer_notcomplete", "Analysis not complete"),
-        ({}, "settings", "Unknown status"),
-        ({"continue_without_email": "fake"}, "settings", "Unknown status")
+        ({"name": "Exomes", "input": "", "continue_without_email": False}, "transfer_notcomplete", "Analysis not complete"),
+        ({"name": "Exomes", "input": ""}, "settings", "Unknown status"),
+        ({"name": "Exomes", "input": "", "continue_without_email": "fake"}, "settings", "Unknown status")
     ])
     def test_with_email(self, folder, template, subject, set_up_test, mock_send_mail_incomplete):
         return_bool = rsync_to_rdisc.action_if_file_missing(
-            folder, True, "", set_up_test['analysis1'], "Exomes", set_up_test['run_file']
+            folder, True, "", set_up_test['analysis1'], set_up_test['run_file']
         )
         mock_send_mail_incomplete.assert_called_once()
         assert template == mock_send_mail_incomplete.call_args[0][1]
@@ -295,8 +304,9 @@ class TestRsyncServerRemote():
         mock_check = mocker.patch("rsync_to_rdisc.check_if_file_missing", return_value=["workflow.done"])
         mock_action = mocker.patch("rsync_to_rdisc.action_if_file_missing", return_value=False)
         rsync_to_rdisc.rsync_server_remote(
-            "hpct04", "client", {f"{set_up_test['run']}_2": "Exomes"}, set_up_test['run_file'],
-            "bgarray.log", set_up_test['tmp_path']
+            "hpct04", "client",
+            {f"{set_up_test['run']}_2": rsync_to_rdisc.settings.transfer_settings['bgarray']['transfers'][0]},
+            set_up_test['tmp_path'], f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt",
         )
         mock_check.assert_called_once()
         assert mock_check.call_args[0][0] == ["workflow.done"]
@@ -308,27 +318,29 @@ class TestRsyncServerRemote():
         mock_os_system = mocker.patch("rsync_to_rdisc.os.system")
         mock_check_rsync = mocker.patch("rsync_to_rdisc.check_rsync", return_value="ok")
         rsync_to_rdisc.rsync_server_remote(
-            "hpct04", "client", {f"{set_up_test['run']}_3": "Genomes"}, set_up_test['run_file'],
-            log="bgarray.log", bgarray=set_up_test['tmp_path'], wkdir=set_up_test['tmp_path']
+            "hpct04", "client",
+            {f"{set_up_test['run']}_3": rsync_to_rdisc.settings.transfer_settings['bgarray']['transfers'][2]},
+            set_up_test['tmp_path'], f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt",
         )
         mock_check.assert_called_once()
         mock_os_system.assert_called_once()
         mock_check_rsync.assert_called_once()
         mock_send_mail_transfer_state.assert_called_once()
         mock_send_mail_transfer_state.reset_mock()
-        assert f"{set_up_test['run']}_3_Genomes\tok" in Path(set_up_test['tmp_path']/"transferred_runs.txt").read_text()
+        assert f"{set_up_test['run']}_3_TRANSFER\tok" in Path(f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt").read_text()
 
     def test_rsync_error(self, set_up_test, mocker, mock_send_mail_transfer_state):
         mocker.patch("rsync_to_rdisc.check_if_file_missing", return_value=[])
         mocker.patch("rsync_to_rdisc.os.system")
         mocker.patch("rsync_to_rdisc.check_rsync", return_value="error")
         rsync_to_rdisc.rsync_server_remote(
-            "hpct04", "client", {f"{set_up_test['run']}_3": "Exomes"}, set_up_test['run_file'],
-            log="bgarray.log", bgarray=set_up_test['tmp_path'], wkdir=set_up_test['tmp_path']
+            "hpct04", "client",
+            {f"{set_up_test['run']}_3": rsync_to_rdisc.settings.transfer_settings['bgarray']['transfers'][0]},
+            set_up_test['tmp_path'], f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt",
         )
-        assert f"{set_up_test['run']}_3_Exomes" not in Path(set_up_test['tmp_path']/"transferred_runs.txt").read_text()
+        assert f"{set_up_test['run']}_3_Exomes" not in Path(f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt").read_text()
 
-    # parametrize gatk/ed error and no errors.
+    # parametrize GATK / ExomeDepth error and no errors.
     @pytest.mark.parametrize("project,gatk_succes,ed_succes,state", [
         ("5", "ok", "error", "vcf_upload_error"),
         ("6", "error", "ok", "vcf_upload_error"),
@@ -350,8 +362,9 @@ class TestRsyncServerRemote():
         mocker.patch("rsync_to_rdisc.upload_exomedepth_vcf", return_value=(ed_succes, ""))
 
         rsync_to_rdisc.rsync_server_remote(
-            "hpct04", "client", {f"{analysis}": "Exomes"}, set_up_test['run_file'],
-            log="bgarray.log", bgarray=set_up_test['tmp_path'], wkdir=set_up_test['tmp_path']
+            "hpct04", "client",
+            {f"{analysis}": rsync_to_rdisc.settings.transfer_settings['bgarray']['transfers'][0]},
+            set_up_test['tmp_path'], f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt",
         )
         mock_send_mail_transfer_state.assert_called_once_with(
             filename=f'/hpc/diaggen/data/upload/Exomes/{analysis}',
@@ -360,7 +373,7 @@ class TestRsyncServerRemote():
             upload_result_exomedepth="",
         )
         mock_send_mail_transfer_state.reset_mock()
-        assert f"{analysis}_Exomes\t{state}" in Path(set_up_test['tmp_path']/"transferred_runs.txt").read_text()
+        assert f"{analysis}_Exomes\t{state}" in Path(f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt").read_text()
 
 
 def test_run_vcf_upload(mocker, set_up_test):
@@ -400,7 +413,7 @@ def test_run_vcf_upload(mocker, set_up_test):
     (["Warning"], "warning"),
     (["vcf_upload_warning"], "warning"),
     (["ok"], "ok")
-   ])
+])
 def test_get_upload_state(msg, expected):
     return_state = rsync_to_rdisc.get_upload_state(msg)
     assert return_state == expected
