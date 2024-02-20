@@ -1,6 +1,7 @@
 # Mirror production requirements
 -r prod.txt
 # Add dev specific packages
+flake8==3.7.3
 pytest==7.0.1
 pytest-cov==4.0.0
 pytest-mock==3.6.1
