@@ -44,6 +44,7 @@ transfer_settings = {
                 "continue_without_email": False,
                 "upload_gatk_vcf": True,
                 "upload_exomedepth_vcf": True,
+                "delete_from_remote": False
             },
             {
                 "name": "Genomes",
@@ -53,6 +54,7 @@ transfer_settings = {
                 "continue_without_email": False,
                 "upload_gatk_vcf": False,
                 "upload_exomedepth_vcf": False,
+                "delete_from_remote": False
             },
             {
                 "name": "TRANSFER",
@@ -62,6 +64,7 @@ transfer_settings = {
                 "continue_without_email": False,
                 "upload_gatk_vcf": False,
                 "upload_exomedepth_vcf": False,
+                "delete_from_remote": False
             },
             {
                 "name": "RAW_data",
@@ -71,6 +74,7 @@ transfer_settings = {
                 "continue_without_email": False,
                 "upload_gatk_vcf": False,
                 "upload_exomedepth_vcf": False,
+                "delete_from_remote": False
             },
             {
                 "name": "RNAseq",
@@ -80,7 +84,23 @@ transfer_settings = {
                 "continue_without_email": False,
                 "upload_gatk_vcf": False,
                 "upload_exomedepth_vcf": False,
+                "delete_from_remote": False
             },
+        ]
+    },
+    "dxautomation": {
+        "mount_path": "/diaggen/app_support/",
+        "transfers": [
+            {
+                "name": "Exomes",
+                "input": "/hpc/diaggen/app_support/dxautomation/merges/",
+                "output": "dxautomation/merges/",
+                "files_required": ["list_of_merges_for_vm.json", "list_of_merges_for_vm.canbetransferred"],
+                "continue_without_email": False,
+                "upload_gatk_vcf": False,
+                "upload_exomedepth_vcf": False,
+                "delete_from_remote": True
+            }
         ]
     },
     "glims": {
@@ -94,6 +114,7 @@ transfer_settings = {
                 "continue_without_email": False,
                 "upload_gatk_vcf": False,
                 "upload_exomedepth_vcf": False,
+                "delete_from_remote": False
             },
         ]
     }
