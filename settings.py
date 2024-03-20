@@ -92,7 +92,7 @@ transfer_settings = {
         "mount_path": "/diaggen/app_support/",
         "transfers": [
             {
-                "name": "Exomes",
+                "name": "DxAutomationMerges",
                 "input": "/hpc/diaggen/app_support/dxautomation/merges/",
                 "output": "dxautomation/merges/",
                 "files_required": ["list_of_merges_for_vm.json", "list_of_merges_for_vm.canbetransferred"],
