@@ -210,7 +210,7 @@ def action_if_file_missing(transfer_settings, rsync_succes, missing, run, run_fi
         return False
 
 
-def rsync_server_remote(hpc_server, client, to_be_transferred, mount_path, run_file, extra_rsync_params):
+def rsync_server_remote(hpc_server, client, to_be_transferred, mount_path, run_file):
     date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     rsync_succes = True
 
@@ -222,6 +222,8 @@ def rsync_server_remote(hpc_server, client, to_be_transferred, mount_path, run_f
         transfer_settings = to_be_transferred[run]
         # settings per folder data type, such as remote input dir and local output dir, etc.
         missing = check_if_file_missing(transfer_settings["files_required"], f"{transfer_settings['input']}/{run}", client)
+
+        extra_rsync_params = "--remove-source-files" if transfer_settings["delete_from_remote"] else ""
 
         if missing:
             print(transfer_settings, rsync_succes, missing, run, run_file)
@@ -383,9 +385,7 @@ if __name__ == "__main__":
             )
 
             # Rsync folders from HPC to mount
-            extra_params = \
-                "--remove-source-files" if settings.transfer_settings[mount_name]["transfers"]["delete_from_remote"] else ""
-            rsync_succes = rsync_server_remote(hpc_server, client, to_be_transferred, mount_path, run_file, extra_params)
+            rsync_succes = rsync_server_remote(hpc_server, client, to_be_transferred, mount_path, run_file)
             if not rsync_succes:
                 remove_run_file = False
         else:  # Mount not available block upcoming transfers
