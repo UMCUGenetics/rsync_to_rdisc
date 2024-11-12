@@ -45,8 +45,8 @@ def set_up_test(tmp_path_factory):
     run = "230920_A01131_0356_AHKM7VDRX3"
     analysis = f"{run}_1"  # run ok + exomedepth
     analysis_transfer_settings = rsync_to_rdisc.settings.transfer_settings['bgarray']['transfers'][0]
-    Path(f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt").write_text(analysis)  # Other analysis will be added as part of the tests.
-
+    # Other analysis will be added as part of the tests.
+    Path(f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt").write_text(analysis)
 
     # Processed folder
     for project in range(1, 6):
@@ -327,7 +327,9 @@ class TestRsyncServerRemote():
         mock_check_rsync.assert_called_once()
         mock_send_mail_transfer_state.assert_called_once()
         mock_send_mail_transfer_state.reset_mock()
-        assert f"{set_up_test['run']}_3_TRANSFER\tok" in Path(f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt").read_text()
+        assert (
+            f"{set_up_test['run']}_3_TRANSFER\tok" in Path(f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt").read_text()
+        )
 
     def test_rsync_error(self, set_up_test, mocker, mock_send_mail_transfer_state):
         mocker.patch("rsync_to_rdisc.check_if_file_missing", return_value=[])
@@ -338,7 +340,9 @@ class TestRsyncServerRemote():
             {f"{set_up_test['run']}_3": rsync_to_rdisc.settings.transfer_settings['bgarray']['transfers'][0]},
             set_up_test['tmp_path'], f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt",
         )
-        assert f"{set_up_test['run']}_3_Exomes" not in Path(f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt").read_text()
+        assert (
+            f"{set_up_test['run']}_3_Exomes" not in Path(f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt").read_text()
+        )
 
     # parametrize GATK / ExomeDepth error and no errors.
     @pytest.mark.parametrize("project,gatk_succes,ed_succes,state", [
@@ -351,7 +355,9 @@ class TestRsyncServerRemote():
         ("5", "warning", "error", "vcf_upload_error"),
         ("6", "error", "warning", "vcf_upload_error"),
     ])
-    def test_vcf_upload_error(self, project, gatk_succes, ed_succes, state, set_up_test, mocker, mock_send_mail_transfer_state):
+    def test_vcf_upload_error(
+        self, project, gatk_succes, ed_succes, state, set_up_test, mocker, mock_send_mail_transfer_state
+    ):
         analysis = f"{set_up_test['run']}_{project}"
         mocker.patch("rsync_to_rdisc.check_if_file_missing", return_value=[])
         mocker.patch("rsync_to_rdisc.os.system")
