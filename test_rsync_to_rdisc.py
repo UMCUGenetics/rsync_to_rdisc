@@ -397,8 +397,18 @@ def test_run_vcf_upload(mocker, set_up_test):
     (["warning"], "warning"),
     (["Warning"], "warning"),
     (["vcf_upload_warning"], "warning"),
-    (["ok"], "ok")
-   ])
+    (["ok"], "ok"),
+    (["error", "error"], "error"),
+    (["warning", "warning"], "warning"),
+    (["error", "warning"], "error"),
+    (["warning", "error"], "error"),
+    (["warning", "ok"], "warning"),
+    (["ok", "warning"], "warning"),
+    (["warning", "error", "ok"], "error"),
+    (["ok", "warning", "ok", "error"], "error"),
+    (["ok", "warning", "error"], "error"),
+    (["ok", "error", "warning"], "error")
+])
 def test_get_upload_state(msg, expected):
     return_state = rsync_to_rdisc.get_upload_state(msg)
     assert return_state == expected
