@@ -295,13 +295,14 @@ def run_vcf_upload(vcf_file, vcf_type, run):
 
 
 def get_upload_state(upload_result):
+    return_value = 'ok'
     for msg in upload_result:
         if 'error' in msg.lower():
-            return 'error'
+            return_value = 'error'
+            break
         elif 'warning' in msg.lower():
-            return 'warning'
-    return 'ok'
-
+            return_value = 'warning'
+    return return_value
 
 def upload_gatk_vcf(run, run_folder):
     # Remove projects from run
