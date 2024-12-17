@@ -73,9 +73,13 @@ transfer_settings = {
                 "upload_exomedepth_vcf": False,
             },
             {
-                "name": "RNAseq",
-                "input": "/hpc/diaggen/data/upload/RNAseq/",
+                "name": "Transcriptomes",
+                "input": "/hpc/diaggen/data/upload/Transcriptomes/",
                 "output": "Illumina/Research_Dx/Transcriptomes/UMCU_hg38/",
+                "files_required": ["workflow.done"],
+                "continue_without_email": False,
+                "upload_gatk_vcf": False,
+                "upload_exomedepth_vcf": False,
             },
             {
                 "name": "RAW_data_RNAseq",
