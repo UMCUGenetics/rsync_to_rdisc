@@ -90,9 +90,9 @@ transfer_settings = {
                 "upload_gatk_vcf": False,
                 "upload_exomedepth_vcf": False,
                 "include": ["RunInfo.xml", "RunParameters.xml", "SampleSheet.csv", "*RNASeq*", "md5sum.txt", "*Reports/*"],
-                "exclude": ["*"]
+                "exclude": ["*"],
             },
-        ]
+        ],
     },
     "glims": {
         "mount_path": "/mnt/glims/",
@@ -106,6 +106,6 @@ transfer_settings = {
                 "upload_gatk_vcf": False,
                 "upload_exomedepth_vcf": False,
             },
-        ]
-    }
+        ],
+    },
 }
