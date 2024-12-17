@@ -76,10 +76,17 @@ transfer_settings = {
                 "name": "RNAseq",
                 "input": "/hpc/diaggen/data/upload/RNAseq/",
                 "output": "Illumina/Research_Dx/Transcriptomes/UMCU_hg38/",
+            },
+            {
+                "name": "RAW_data_RNAseq",
+                "input": "/hpc/diaggen/data/upload/RAW_data_RNAseq/",
+                "output": "Validation/RAW_data/RNAseq/",
                 "files_required": [""],
                 "continue_without_email": False,
                 "upload_gatk_vcf": False,
                 "upload_exomedepth_vcf": False,
+                "include": ["RunInfo.xml", "RunParameters.xml", "SampleSheet.csv", "*RNASeq*", "md5sum.txt", "*Reports/*"],
+                "exclude": ["*"]
             },
         ]
     },
