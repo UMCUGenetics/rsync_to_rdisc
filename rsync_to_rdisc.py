@@ -227,19 +227,21 @@ def rsync_server_remote(hpc_server, client, to_be_transferred, mount_path, run_f
             print(transfer_settings, rsync_succes, missing, run, run_file)
             rsync_succes = action_if_file_missing(transfer_settings, rsync_succes, missing, run, run_file)
             continue  # don't transfer the run if a required file is missing.
-        os.system((
-            "rsync -rahuL --stats {user}@{server}:{input}/{run} {mount_path}/{output}/ "
-            " 1>> {log_path} 2>> {errorlog_path} 2> {temp_error_path}").format(
-                user=settings.user,
-                server=hpc_server,
-                input=transfer_settings["input"],
-                run=run,
-                mount_path=mount_path,
-                output=transfer_settings["output"],
-                log_path=settings.log_path,
-                errorlog_path=settings.errorlog_path,
-                temp_error_path=settings.temp_error_path
-        ))
+
+        rsync_params = "-rahuL --stats "
+        # Add include and exclude, where order is important (first include should be added).
+        if transfer_settings.get("include", None):
+            rsync_params += " ".join([f"--include {pattern}" for pattern in transfer_settings["include"]])
+        if transfer_settings.get("exclude", None):
+            rsync_params += " ".join([f"--exclude {pattern}" for pattern in transfer_settings["exclude"]])
+
+        os.system(
+            (
+                f"rsync {rsync_params} {settings.user}@{hpc_server}:{transfer_settings['input']}/{run} "
+                f"{mount_path}/{transfer_settings['output']}/ "
+                f"1>> {settings.log_path} 2>> {settings.errorlog_path} 2> {settings.temp_error_path}"
+            )
+        )
         rsync_result = check_rsync(run, transfer_settings)
 
         if rsync_result == "ok":
