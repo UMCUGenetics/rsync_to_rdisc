@@ -90,6 +90,7 @@ transfer_settings = {
                 "upload_gatk_vcf": False,
                 "upload_exomedepth_vcf": False,
                 "include": [
+                    "**/",
                     "Data",
                     "Data/Intensities",
                     "Data/Intensities/BaseCalls",
