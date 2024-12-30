@@ -231,9 +231,9 @@ def rsync_server_remote(hpc_server, client, to_be_transferred, mount_path, run_f
         rsync_params = "-rahuL --stats "
         # Add include and exclude, where order is important (first include should be added).
         if transfer_settings.get("include", None):
-            rsync_params += " ".join([f"--include {pattern}" for pattern in transfer_settings["include"]])
+            rsync_params += " ".join([f" --include '{pattern}'" for pattern in transfer_settings["include"]])
         if transfer_settings.get("exclude", None):
-            rsync_params += " ".join([f"--exclude {pattern}" for pattern in transfer_settings["exclude"]])
+            rsync_params += " ".join([f" --exclude '{pattern}'" for pattern in transfer_settings["exclude"]])
 
         os.system(
             (
