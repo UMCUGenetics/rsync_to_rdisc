@@ -351,9 +351,9 @@ class TestRsyncServerRemote:
         "key,value",
         [
             ("include", ["single_sample_vcf/"]),
-            # ("include", ["single_sample_vcf/", "QC/"]),
-            # ("exclude", ["exomedepth/*"]),
-            # ("exclude", ["exomedepth/*", "QC/*"]),
+            ("include", ["single_sample_vcf/", "QC/"]),
+            ("exclude", ["exomedepth/*"]),
+            ("exclude", ["exomedepth/*", "QC/*"]),
         ],
     )
     def test_rsync_ok_include_exclude(self, key, value, set_up_test, mocker, mock_send_mail_transfer_state):
@@ -387,7 +387,11 @@ class TestRsyncServerRemote:
         # Assert that each include/exclude is accompanied with a value.
         for idx, rsync_part in enumerate(split_rsync_call):
             if rsync_part == f"--{key}":
-                assert split_rsync_call[idx + 1] in value
+                pattern = split_rsync_call[idx + 1]
+                # Ignore surrounding quotes.
+                assert pattern.replace("'", "") in value
+                # Assert pattern is surrounded by quotes.
+                assert pattern.startswith("'") and pattern.endswith("'")
 
     def test_rsync_error(self, set_up_test, mocker, mock_send_mail_transfer_state):
         mocker.patch("rsync_to_rdisc.check_if_file_missing", return_value=[])
