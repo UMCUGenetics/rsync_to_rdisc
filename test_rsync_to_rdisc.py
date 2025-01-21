@@ -329,7 +329,7 @@ class TestRsyncServerRemote:
 
     def test_rsync_ok(self, set_up_test, mocker, mock_send_mail_transfer_state):
         mock_check = mocker.patch("rsync_to_rdisc.check_if_file_missing", return_value=[])
-        mock_os_system = mocker.patch("rsync_to_rdisc.os.system")
+        mock_subprocess_run = mocker.patch("rsync_to_rdisc.subprocess.run")
         mock_check_rsync = mocker.patch("rsync_to_rdisc.check_rsync", return_value="ok")
         rsync_to_rdisc.rsync_server_remote(
             "hpct04",
@@ -339,7 +339,7 @@ class TestRsyncServerRemote:
             f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt",
         )
         mock_check.assert_called_once()
-        mock_os_system.assert_called_once()
+        mock_subprocess_run.assert_called_once()
         mock_check_rsync.assert_called_once()
         mock_send_mail_transfer_state.assert_called_once()
         mock_send_mail_transfer_state.reset_mock()
@@ -359,7 +359,7 @@ class TestRsyncServerRemote:
     def test_rsync_ok_include_exclude(self, key, value, set_up_test, mocker, mock_send_mail_transfer_state):
         # Mock functions
         mock_check = mocker.patch("rsync_to_rdisc.check_if_file_missing", return_value=[])
-        mock_os_system = mocker.patch("rsync_to_rdisc.os.system")
+        mock_subprocess_run = mocker.patch("rsync_to_rdisc.subprocess.run")
         mock_check_rsync = mocker.patch("rsync_to_rdisc.check_rsync", return_value="ok")
         # Add include/exclude to transfer_settings
         transfer_settings = rsync_to_rdisc.settings.transfer_settings["bgarray"]["transfers"][2]
@@ -373,7 +373,7 @@ class TestRsyncServerRemote:
             f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt",
         )
         mock_check.assert_called_once()
-        mock_os_system.assert_called_once()
+        mock_subprocess_run.assert_called_once()
         mock_check_rsync.assert_called_once()
         mock_send_mail_transfer_state.assert_called_once()
         mock_send_mail_transfer_state.reset_mock()
@@ -381,21 +381,23 @@ class TestRsyncServerRemote:
             f"{set_up_test['run']}_3_TRANSFER\tok" in Path(f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt").read_text()
         )
         # Split rsync command on space
-        split_rsync_call = mock_os_system.call_args[0][0].split(" ")
-        # Assert number of include/exclude statements.
-        assert split_rsync_call.count(f"--{key}") == len(value)
+        rsync_cmd = mock_subprocess_run.call_args[0][0]
+        count_include_exclude = 0
         # Assert that each include/exclude is accompanied with a value.
-        for idx, rsync_part in enumerate(split_rsync_call):
-            if rsync_part == f"--{key}":
-                pattern = split_rsync_call[idx + 1]
+        for rsync_part in rsync_cmd:
+            if rsync_part.startswith(f"--{key}"):
+                count_include_exclude += 1
+                pattern = rsync_part.split(" ")[1]
                 # Ignore surrounding quotes.
                 assert pattern.replace("'", "") in value
                 # Assert pattern is surrounded by quotes.
                 assert pattern.startswith("'") and pattern.endswith("'")
+        # Assert number of include/exclude statements.
+        assert count_include_exclude == len(value)
 
     def test_rsync_error(self, set_up_test, mocker, mock_send_mail_transfer_state):
         mocker.patch("rsync_to_rdisc.check_if_file_missing", return_value=[])
-        mocker.patch("rsync_to_rdisc.os.system")
+        mocker.patch("rsync_to_rdisc.subprocess.run")
         mocker.patch("rsync_to_rdisc.check_rsync", return_value="error")
         rsync_to_rdisc.rsync_server_remote(
             "hpct04",
@@ -429,7 +431,7 @@ class TestRsyncServerRemote:
     ):
         analysis = f"{set_up_test['run']}_{project}"
         mocker.patch("rsync_to_rdisc.check_if_file_missing", return_value=[])
-        mocker.patch("rsync_to_rdisc.os.system")
+        mocker.patch("rsync_to_rdisc.subprocess.run")
         mocker.patch("rsync_to_rdisc.check_rsync", return_value="ok")
         mocker.patch("rsync_to_rdisc.upload_gatk_vcf", return_value=(gatk_succes, ""))
         mocker.patch("rsync_to_rdisc.upload_exomedepth_vcf", return_value=(ed_succes, ""))

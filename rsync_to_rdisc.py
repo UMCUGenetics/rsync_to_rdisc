@@ -2,7 +2,6 @@
 from csv import writer
 from datetime import datetime
 import glob
-import os
 import subprocess
 import sys
 
@@ -228,20 +227,35 @@ def rsync_server_remote(hpc_server, client, to_be_transferred, mount_path, run_f
             rsync_succes = action_if_file_missing(transfer_settings, rsync_succes, missing, run, run_file)
             continue  # don't transfer the run if a required file is missing.
 
-        rsync_params = "-rahuL --stats "
-        # Add include and exclude, where order is important (first include should be added).
+        # Get include and exclude patterns as list to easily access key-value pair in unit test.
         if transfer_settings.get("include", None):
-            rsync_params += " ".join([f" --include '{pattern}'" for pattern in transfer_settings["include"]])
+            include_patterns = [f"--include '{pattern}'" for pattern in transfer_settings["include"]]
+        else:
+            include_patterns = ""
         if transfer_settings.get("exclude", None):
-            rsync_params += " ".join([f" --exclude '{pattern}'" for pattern in transfer_settings["exclude"]])
+            exclude_patterns = [f"--exclude '{pattern}'" for pattern in transfer_settings["exclude"]]
+        else:
+            exclude_patterns = ""
 
-        os.system(
-            (
-                f"rsync {rsync_params} {settings.user}@{hpc_server}:{transfer_settings['input']}/{run} "
-                f"{mount_path}/{transfer_settings['output']}/ "
-                f"1>> {settings.log_path} 2>> {settings.errorlog_path} 2> {settings.temp_error_path}"
-            )
-        )
+        source_destination = f"{settings.user}@{hpc_server}:{transfer_settings['input']}/{run}"
+        target_path = f"{mount_path}/{transfer_settings['output']}"
+        parse_stdout = f"1>> {settings.log_path} 2>> {settings.errorlog_path} 2> {settings.temp_error_path}"
+
+        rsync_cmd = [
+            "rsync",
+            "-rahuL",
+            "--stats",
+            source_destination,
+            target_path,
+            parse_stdout
+        ]
+
+        # Using list slicing to extend rsync_cmd list with include / exclude patterns.
+        rsync_cmd[3:3] = exclude_patterns
+        # Add include patterns before exclude patterns.
+        rsync_cmd[3:3] = include_patterns
+
+        subprocess.run(rsync_cmd, shell=True, stdout=subprocess.PIPE, encoding="UTF-8")
         rsync_result = check_rsync(run, transfer_settings)
 
         if rsync_result == "ok":
