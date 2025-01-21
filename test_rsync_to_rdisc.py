@@ -44,10 +44,9 @@ def set_up_test(tmp_path_factory):
     # Setup Analysis
     run = "230920_A01131_0356_AHKM7VDRX3"
     analysis = f"{run}_1"  # run ok + exomedepth
-    analysis_transfer_settings = rsync_to_rdisc.settings.transfer_settings["bgarray"]["transfers"][0]
-    Path(f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt").write_text(
-        analysis
-    )  # Other analysis will be added as part of the tests.
+    analysis_transfer_settings = rsync_to_rdisc.settings.transfer_settings['bgarray']['transfers'][0]
+    # Other analysis will be added as part of the tests.
+    Path(f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt").write_text(analysis)
 
     # Processed folder
     for project in range(1, 6):

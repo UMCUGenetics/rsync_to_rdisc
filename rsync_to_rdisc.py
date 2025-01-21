@@ -216,7 +216,7 @@ def rsync_server_remote(hpc_server, client, to_be_transferred, mount_path, run_f
     for run in to_be_transferred:
         with open(settings.log_path, "a", newline="\n") as log_file:
             log_file_writer = writer(log_file, delimiter="\t")
-            log_file_writer.writerows([["#########"], [f"Date: {date}", f"Run_folder: {run}"]])
+            log_file_writer.writerows([["#########"], [f"Date: {date}"], [f"Run_folder: {run}"]])
 
         transfer_settings = to_be_transferred[run]
         # Settings per folder data type, such as remote input dir and local output dir, etc.
@@ -288,9 +288,9 @@ def rsync_server_remote(hpc_server, client, to_be_transferred, mount_path, run_f
                 upload_result_exomedepth=upload_result_exomedepth
             )
             # Do not include run in transferred_runs.txt if temp error file is not empty.
-            with open(f"{settings.wkdir}/transferred_runs.txt", 'a', newline='\n') as log_file:
-                log_file_writer = writer(log_file, delimiter='\t')
-                log_file_writer.writerow([f"{run}_{transfer_settings['name']}", email_state])
+            with open(f"{settings.wkdir}/transferred_runs.txt", 'a', newline='\n') as transferred_file:
+                file_writer = writer(transferred_file, delimiter='\t')
+                file_writer.writerow([f"{run}_{transfer_settings['name']}", email_state])
 
     return rsync_succes
 
