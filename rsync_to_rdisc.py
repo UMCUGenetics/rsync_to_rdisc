@@ -214,12 +214,12 @@ def rsync_server_remote(hpc_server, client, to_be_transferred, mount_path, run_f
     rsync_succes = True
 
     for run in to_be_transferred:
-        with open(settings.log_path, 'a', newline='\n') as log_file:
-            log_file_writer = writer(log_file, delimiter='\t')
+        with open(settings.log_path, "a", newline="\n") as log_file:
+            log_file_writer = writer(log_file, delimiter="\t")
             log_file_writer.writerows([["#########"], [f"Date: {date}", f"Run_folder: {run}"]])
 
         transfer_settings = to_be_transferred[run]
-        # settings per folder data type, such as remote input dir and local output dir, etc.
+        # Settings per folder data type, such as remote input dir and local output dir, etc.
         missing = check_if_file_missing(transfer_settings["files_required"], f"{transfer_settings['input']}/{run}", client)
 
         if missing:
