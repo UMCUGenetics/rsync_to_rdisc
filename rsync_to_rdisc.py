@@ -74,21 +74,18 @@ def send_mail_incomplete(run, title_template, subject, run_file):
     send_email(subject, f"{title_template}.html", body_params)
 
 
-def check_rsync(run, transfer_settings):
-    if not Path(settings.temp_error_path).stat().st_size:
+def check_rsync(run, input, ngs_type_name, subprocess_out):
+    if not subprocess_out.stderr or not subprocess_out.returncode:
         log_msg = [[""], [">>> No errors detected <<<"]]
         Path(settings.temp_error_path).unlink()  # remove tmperror file.
         rsync_result = "ok"
     else:
-        log_msg = [
-            [""],
-            [f">>>{run}_{transfer_settings['name']} errors detected in data transfer, not added to completed files <<<"]
-        ]
-        send_mail_transfer_state("{}{}".format(transfer_settings["input"], run), "error")
+        log_msg = [[""], [f">>>{run}_{ngs_type_name} errors detected in data transfer, not added to completed files <<<"]]
+        send_mail_transfer_state(f"{input}{run}", "error")
         rsync_result = "error"
 
-    with open(settings.log_path, 'a', newline='\n') as log_file:
-        log_file_writer = writer(log_file, delimiter='\t')
+    with open(settings.log_path, "a", newline="\n") as log_file:
+        log_file_writer = writer(log_file, delimiter="\t")
         log_file_writer.writerows(log_msg)
 
     return rsync_result
@@ -228,32 +225,44 @@ def rsync_server_remote(hpc_server, client, to_be_transferred, mount_path, run_f
         if transfer_settings.get("include", None):
             include_patterns = [f"--include '{pattern}'" for pattern in transfer_settings["include"]]
         else:
-            include_patterns = ""
+            include_patterns = []
         if transfer_settings.get("exclude", None):
             exclude_patterns = [f"--exclude '{pattern}'" for pattern in transfer_settings["exclude"]]
         else:
-            exclude_patterns = ""
+            exclude_patterns = []
 
         source_destination = f"{settings.user}@{hpc_server}:{transfer_settings['input']}/{run}"
         target_path = f"{mount_path}/{transfer_settings['output']}"
-        parse_stdout = f"1>> {settings.log_path} 2>> {settings.errorlog_path} 2> {settings.temp_error_path}"
 
         rsync_cmd = [
             "rsync",
             "-rahuL",
             "--stats",
+            *include_patterns,
+            *exclude_patterns,
             source_destination,
             target_path,
-            parse_stdout
         ]
+        subprocess_result = subprocess.run(rsync_cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE, encoding="UTF-8")
 
-        # Using list slicing to extend rsync_cmd list with include / exclude patterns.
-        rsync_cmd[3:3] = exclude_patterns
-        # Add include patterns before exclude patterns.
-        rsync_cmd[3:3] = include_patterns
+        with open(settings.log_path, "a", newline="\n") as log_file:
+            log_file.writelines(subprocess_result.stderr)
 
-        subprocess.run(rsync_cmd, shell=True, stdout=subprocess.PIPE, encoding="UTF-8")
-        rsync_result = check_rsync(run, transfer_settings)
+        # Write stderr to two files
+        with open(settings.errorlog_path, "a", newline="\n") as stderr_log:
+            stderr_log.writelines(subprocess_result.stderr)
+
+        with open(settings.temp_error_path, "a", newline="\n") as tmp_stderr_file:
+            tmp_stderr_file.writelines(subprocess_result.stderr)
+
+
+        # Check on return code of subprocess.run in check_rsync
+        rsync_result = check_rsync(
+            run=run,
+            input=transfer_settings.get("input"),
+            ngs_type_name=transfer_settings.get("name"),
+            subprocess_out=subprocess_result,
+        )
 
         if rsync_result == "ok":
             upload_result_gatk = None

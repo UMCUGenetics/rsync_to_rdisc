@@ -3,8 +3,10 @@ from csv import writer
 import subprocess
 from pathlib import Path
 
+from freezegun import freeze_time
 from paramiko import ssh_exception
 import pytest
+from pytest_subprocess import fake_process
 # from socket import timeout
 
 import rsync_to_rdisc
@@ -151,15 +153,27 @@ def mock_run_vcf_upload(class_mocker):
 
 
 class TestCheckRsync:
-    def test_ok(self, set_up_test, mocker):
-        rsync_result = rsync_to_rdisc.check_rsync(set_up_test["analysis1"], set_up_test["analysis1_transfer_settings"])
+    def test_ok(self, set_up_test, mocker, fake_process):
+        # Use fake_process of pytest subprocess to mock subprocess.run output
+        rsync_cmd = ["rsync", "-rahuL", "--stats", "/source", "/target"]
+        fake_process.register_subprocess(rsync_cmd)
+        subprocess_result = subprocess.run(rsync_cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE, encoding="UTF-8")
+        rsync_result = rsync_to_rdisc.check_rsync(set_up_test["analysis1"], set_up_test["analysis1_transfer_settings"], "Exomes", subprocess_result)
         assert rsync_result == "ok"
         assert not Path(rsync_to_rdisc.settings.temp_error_path).exists()
         assert "No errors detected" in Path(rsync_to_rdisc.settings.log_path).read_text()
 
-    def test_temperror(self, mock_send_mail_transfer_state, set_up_test):
+    def _callback_function(self, process):
+        process.returncode = 1
+
+    def test_temperror(self, mock_send_mail_transfer_state, set_up_test, fake_process):
         rsync_to_rdisc.settings.temp_error_path = f"{rsync_to_rdisc.settings.wkdir}/temp_not_empty.error"
-        rsync_result = rsync_to_rdisc.check_rsync(set_up_test["analysis1"], set_up_test["analysis1_transfer_settings"])
+
+        rsync_cmd = ["rsync", "-rahuL", "--stats", "/source", "/target"]
+        fake_process.register_subprocess(rsync_cmd, callback=self._callback_function, stderr=["error"])
+        subprocess_result = subprocess.run(rsync_cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE, encoding="UTF-8")
+        print(subprocess_result.returncode)
+        rsync_result = rsync_to_rdisc.check_rsync(set_up_test["analysis1"], set_up_test["analysis1_transfer_settings"], "Exomes", subprocess_result)
         assert rsync_result == "error"
         assert f"{set_up_test['analysis1']}_Exomes errors detected" in Path(rsync_to_rdisc.settings.log_path).read_text()
         mock_send_mail_transfer_state.assert_called_once()
@@ -326,10 +340,13 @@ class TestRsyncServerRemote:
         assert f"{set_up_test['run']}_2" in mock_check.call_args[0][1]
         mock_action.assert_called_once()
 
-    def test_rsync_ok(self, set_up_test, mocker, mock_send_mail_transfer_state):
+    @freeze_time("2025-01-01 13:00:00")
+    def test_rsync_ok(self, set_up_test, mocker, mock_send_mail_transfer_state, fake_process):
         mock_check = mocker.patch("rsync_to_rdisc.check_if_file_missing", return_value=[])
-        mock_subprocess_run = mocker.patch("rsync_to_rdisc.subprocess.run")
         mock_check_rsync = mocker.patch("rsync_to_rdisc.check_rsync", return_value="ok")
+
+        # Use fake_process of pytest subprocess to mock subprocess.run
+        fake_process.register_subprocess(["rsync", "-rahuL", "--stats", fake_process.any()])
         rsync_to_rdisc.rsync_server_remote(
             "hpct04",
             "client",
@@ -338,14 +355,17 @@ class TestRsyncServerRemote:
             f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt",
         )
         mock_check.assert_called_once()
-        mock_subprocess_run.assert_called_once()
         mock_check_rsync.assert_called_once()
         mock_send_mail_transfer_state.assert_called_once()
         mock_send_mail_transfer_state.reset_mock()
+
+        assert fake_process.call_count(["rsync","-rahuL", "--stats", fake_process.any()]) == 1
+        assert f"#########\nDate: 2025-01-01 13:00:00\nRun_folder: {set_up_test['run']}_3\n" in Path(rsync_to_rdisc.settings.log_path).read_text()
         assert (
             f"{set_up_test['run']}_3_TRANSFER\tok" in Path(f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt").read_text()
         )
 
+    @freeze_time("2025-01-02 13:00:00")
     @pytest.mark.parametrize(
         "key,value",
         [
@@ -355,11 +375,12 @@ class TestRsyncServerRemote:
             ("exclude", ["exomedepth/*", "QC/*"]),
         ],
     )
-    def test_rsync_ok_include_exclude(self, key, value, set_up_test, mocker, mock_send_mail_transfer_state):
+    def test_rsync_ok_include_exclude(self, key, value, set_up_test, mocker, mock_send_mail_transfer_state, fake_process):
         # Mock functions
         mock_check = mocker.patch("rsync_to_rdisc.check_if_file_missing", return_value=[])
-        mock_subprocess_run = mocker.patch("rsync_to_rdisc.subprocess.run")
         mock_check_rsync = mocker.patch("rsync_to_rdisc.check_rsync", return_value="ok")
+        # Use fake_process of pytest subprocess to mock subprocess.run
+        fake_process.register_subprocess(["rsync", "-rahuL", "--stats", fake_process.any()])
         # Add include/exclude to transfer_settings
         transfer_settings = rsync_to_rdisc.settings.transfer_settings["bgarray"]["transfers"][2]
         transfer_settings[key] = value
@@ -372,15 +393,14 @@ class TestRsyncServerRemote:
             f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt",
         )
         mock_check.assert_called_once()
-        mock_subprocess_run.assert_called_once()
         mock_check_rsync.assert_called_once()
         mock_send_mail_transfer_state.assert_called_once()
         mock_send_mail_transfer_state.reset_mock()
         assert (
             f"{set_up_test['run']}_3_TRANSFER\tok" in Path(f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt").read_text()
         )
-        # Split rsync command on space
-        rsync_cmd = mock_subprocess_run.call_args[0][0]
+        assert fake_process.call_count(["rsync","-rahuL", "--stats", fake_process.any()]) == 1
+        rsync_cmd = fake_process.calls[0]
         count_include_exclude = 0
         # Assert that each include/exclude is accompanied with a value.
         for rsync_part in rsync_cmd:
@@ -394,10 +414,16 @@ class TestRsyncServerRemote:
         # Assert number of include/exclude statements.
         assert count_include_exclude == len(value)
 
-    def test_rsync_error(self, set_up_test, mocker, mock_send_mail_transfer_state):
+    def test_rsync_error(self, set_up_test, mocker, mock_send_mail_transfer_state, fake_process):
         mocker.patch("rsync_to_rdisc.check_if_file_missing", return_value=[])
-        mocker.patch("rsync_to_rdisc.subprocess.run")
         mocker.patch("rsync_to_rdisc.check_rsync", return_value="error")
+
+        # Use fake_process of pytest subprocess to mock subprocess.run
+        fake_process.register_subprocess(
+            ["rsync", "-rahuL", "--stats", fake_process.any()],
+            stdout=[b"Just stdout"],
+            stderr=[b"Just stderr"],
+        )
         rsync_to_rdisc.rsync_server_remote(
             "hpct04",
             "client",
@@ -410,6 +436,10 @@ class TestRsyncServerRemote:
         )
 
         mock_send_mail_transfer_state.reset_mock()
+        assert fake_process.call_count(["rsync","-rahuL", "--stats", fake_process.any()]) == 1
+        assert "Just stderr" in Path(rsync_to_rdisc.settings.temp_error_path).read_text()
+        assert "Just stderr" in Path(rsync_to_rdisc.settings.errorlog_path).read_text()
+
 
     # parametrize GATK / ExomeDepth error and no errors.
     @pytest.mark.parametrize(
