@@ -13,6 +13,7 @@ from redmail import EmailSender
 
 import settings
 
+# TODO: add docstrings to all functions.
 
 def send_email(subject, template, body_params, attachments=None):
     email = EmailSender(host=settings.email_smtp_host, port=settings.email_smtp_port, use_starttls=False)
@@ -59,10 +60,7 @@ def send_mail_transfer_state(filename, state, upload_result_gatk=None, upload_re
         elif state == "vcf_upload_warning":
             subject = f"COMPLETED: Transfer has completed with VCF upload warning for {filename}"
         template = "transfer_ok.html"
-        body_params.update({
-            "upload_result_gatk": upload_result_gatk,
-            "upload_result_exomedepth": upload_result_exomedepth
-        })
+        body_params.update({"upload_result_gatk": upload_result_gatk, "upload_result_exomedepth": upload_result_exomedepth})
     elif state == "error":
         subject = f"ERROR: Transfer has not completed for {filename}"
         template = "transfer_error.html"
@@ -125,7 +123,7 @@ def is_mount_available(mount_name, mount_path, run_file):
 def get_transferred_runs(wkdir):
     transferred_runs = Path(f"{wkdir}/transferred_runs.txt")
     if transferred_runs.is_file():
-        with open(transferred_runs, 'r') as runs:
+        with open(transferred_runs, "r") as runs:
             transferred_set = set()
             for transferred_run_state in set(runs.read().splitlines()):
                 # Remove state
@@ -177,10 +175,9 @@ def check_if_file_missing(required_files, input_folder, client):
     missing = []
     for check_file in required_files:
         if check_file:
-            stdin, stdout, stderr = client.exec_command((
-                "[[ -f {0}/{1} ]] && echo \"Present\" "
-                "|| echo \"Absent\""
-            ).format(input_folder, check_file))
+            stdin, stdout, stderr = client.exec_command(
+                ('[[ -f {0}/{1} ]] && echo "Present" || echo "Absent"').format(input_folder, check_file)
+            )
             status = stdout.read().decode("utf8").rstrip()
             if status == "Absent":
                 missing.append(check_file)
@@ -189,27 +186,26 @@ def check_if_file_missing(required_files, input_folder, client):
 
 def action_if_file_missing(transfer_settings, rsync_succes, missing, run, run_file):
     # Send a mail and lock datatransfer
-    if not isinstance(transfer_settings.get('continue_without_email', None), bool):
+    if not isinstance(transfer_settings.get("continue_without_email", None), bool):
         reason = "Unknown status {0}: {1} in settings.py for {2}".format(
-            'continue_without_email',
-            transfer_settings.get('continue_without_email', None),
-            transfer_settings['name']
+            "continue_without_email", transfer_settings.get("continue_without_email", None), transfer_settings["name"]
         )
         send_mail_incomplete(run, "settings", reason, run_file)
         return False
     # Do not send a mail and do not lock datatransfer
-    elif 'continue_without_email' in transfer_settings and transfer_settings["continue_without_email"]:
+    elif "continue_without_email" in transfer_settings and transfer_settings["continue_without_email"]:
         return rsync_succes
     # Send a mail and lock datatransfer
-    elif 'continue_without_email' in transfer_settings and not transfer_settings["continue_without_email"]:
-        reason = (
-            "Analysis not complete (file(s) {0} missing). "
-            "Run = {1} in folder {2} ".format(" and ".join(missing), run, transfer_settings["input"]))
+    elif "continue_without_email" in transfer_settings and not transfer_settings["continue_without_email"]:
+        reason = "Analysis not complete (file(s) {0} missing). Run = {1} in folder {2} ".format(
+            " and ".join(missing), run, transfer_settings["input"]
+        )
         send_mail_incomplete(run, "transfer_notcomplete", reason, run_file)
         return False
 
 
 def rsync_server_remote(hpc_server, client, to_be_transferred, mount_path, run_file):
+    # TODO: refactor this massive function into more bitesize functions.
     date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     rsync_succes = True
 
@@ -225,7 +221,8 @@ def rsync_server_remote(hpc_server, client, to_be_transferred, mount_path, run_f
         if missing:
             print(transfer_settings, rsync_succes, missing, run, run_file)
             rsync_succes = action_if_file_missing(transfer_settings, rsync_succes, missing, run, run_file)
-            continue  # don't transfer the run if a required file is missing.
+            # Don't transfer the run if a required file is missing.
+            continue
 
         # Get include and exclude patterns as list to easily access key-value pair in unit test.
         if transfer_settings.get("include", None):
@@ -263,19 +260,17 @@ def rsync_server_remote(hpc_server, client, to_be_transferred, mount_path, run_f
             upload_result_exomedepth = None
             email_state = rsync_result
 
-            if transfer_settings['upload_gatk_vcf']:
+            if transfer_settings["upload_gatk_vcf"]:
                 upload_state, upload_result_gatk = upload_gatk_vcf(
-                    run=run,
-                    run_folder="{output}/{run}".format(output=transfer_settings["output"], run=run)
+                    run=run, run_folder="{output}/{run}".format(output=transfer_settings["output"], run=run)
                 )
                 if upload_state != "ok":
                     # Warning or error
                     email_state = f"vcf_upload_{upload_state}"
 
-            if transfer_settings['upload_exomedepth_vcf']:
+            if transfer_settings["upload_exomedepth_vcf"]:
                 upload_state, upload_result_exomedepth = upload_exomedepth_vcf(
-                    run=run,
-                    run_folder="{output}/{run}".format(output=transfer_settings["output"], run=run)
+                    run=run, run_folder="{output}/{run}".format(output=transfer_settings["output"], run=run)
                 )
                 # To avoid email_state 'vcf_upload_error' to become a 'vcf_upload_warning'
                 if upload_state != "ok" and email_state != "vcf_upload_error":
@@ -285,11 +280,11 @@ def rsync_server_remote(hpc_server, client, to_be_transferred, mount_path, run_f
                 filename="{}{}".format(transfer_settings["input"], run),
                 state=email_state,
                 upload_result_gatk=upload_result_gatk,
-                upload_result_exomedepth=upload_result_exomedepth
+                upload_result_exomedepth=upload_result_exomedepth,
             )
             # Do not include run in transferred_runs.txt if temp error file is not empty.
-            with open(f"{settings.wkdir}/transferred_runs.txt", 'a', newline='\n') as transferred_file:
-                file_writer = writer(transferred_file, delimiter='\t')
+            with open(f"{settings.wkdir}/transferred_runs.txt", "a", newline="\n") as transferred_file:
+                file_writer = writer(transferred_file, delimiter="\t")
                 file_writer.writerow([f"{run}_{transfer_settings['name']}", email_state])
 
     return rsync_succes
@@ -303,30 +298,31 @@ def run_vcf_upload(vcf_file, vcf_type, run):
         ),
         shell=True,
         stdout=subprocess.PIPE,
-        encoding='UTF-8'
+        encoding="UTF-8",
     )
     # Cleanup upload_vcf output: Strip and split on new line, remove empty strings from list
-    upload_vcf_out = list(filter(None, upload_vcf.stdout.strip().split('\n')))
+    upload_vcf_out = list(filter(None, upload_vcf.stdout.strip().split("\n")))
     return upload_vcf_out
 
 
 def get_upload_state(upload_result):
-    return_value = 'ok'
+    return_value = "ok"
     for msg in upload_result:
-        if 'error' in msg.lower():
-            return_value = 'error'
+        if "error" in msg.lower():
+            return_value = "error"
             break
-        elif 'warning' in msg.lower():
-            return_value = 'warning'
+        elif "warning" in msg.lower():
+            return_value = "warning"
     return return_value
+
 
 def upload_gatk_vcf(run, run_folder):
     # Remove projects from run
-    run = '_'.join(run.split('_')[:4])
+    run = "_".join(run.split("_")[:4])
     upload_result = []
 
     for vcf_file in glob.iglob("{}/single_sample_vcf/*.vcf".format(run_folder)):
-        output_vcf_upload = run_vcf_upload(vcf_file, 'VCF_FILE', run)
+        output_vcf_upload = run_vcf_upload(vcf_file, "VCF_FILE", run)
         if output_vcf_upload:
             upload_result.extend(output_vcf_upload)
     # Possible states: error, warning or ok.
@@ -340,31 +336,31 @@ def upload_exomedepth_vcf(run, run_folder):
     cnv_samples = {}
     upload_result = []
     vcf_files = glob.glob("{}/exomedepth/HC/*.vcf".format(run_folder))
-    with open(f'{run_folder}/QC/CNV/{run}_exomedepth_summary.txt') as exomedepth_summary:
+    with open(f"{run_folder}/QC/CNV/{run}_exomedepth_summary.txt") as exomedepth_summary:
         for line in exomedepth_summary:
             line = line.strip()
             # Skip empty or comment lines
-            if not line or line.startswith('#'):
+            if not line or line.startswith("#"):
                 continue
 
             # Parse sample
-            if 'WARNING' in line.upper():
-                warnings = line.split('\t')[1:]
-                sample = line.split(';')[0]
+            if "WARNING" in line.upper():
+                warnings = line.split("\t")[1:]
+                sample = line.split(";")[0]
             else:
-                warnings = ''
-                sample = line.split(';')[0]
+                warnings = ""
+                sample = line.split(";")[0]
 
-            cnv_samples[sample] = '\t'.join(warnings)
+            cnv_samples[sample] = "\t".join(warnings)
 
     # Remove project from run.
-    run = '_'.join(run.split('_')[:4])
+    run = "_".join(run.split("_")[:4])
     for sample in cnv_samples:
         if cnv_samples[sample]:
             upload_result.append(f"{sample} not uploaded\t{cnv_samples[sample]}")
         else:
             vcf_file = [vcf for vcf in vcf_files if sample in vcf][0]  # One vcf per sample
-            output_vcf_upload = run_vcf_upload(vcf_file, 'UMCU CNV VCF v1', run)
+            output_vcf_upload = run_vcf_upload(vcf_file, "UMCU CNV VCF v1", run)
             if output_vcf_upload:
                 upload_result.extend(output_vcf_upload)
 
@@ -387,15 +383,12 @@ if __name__ == "__main__":
 
     # Run rsync commands for each mount point.
     for mount_name in settings.transfer_settings:
-        mount_path = settings.transfer_settings[mount_name]['mount_path']
+        mount_path = settings.transfer_settings[mount_name]["mount_path"]
         # Check if mount is available and continue
         if is_mount_available(mount_name, mount_path, run_file):
             # Get folders to be transferred
             to_be_transferred = get_folders_remote_server(
-                client,
-                settings.transfer_settings[mount_name]['transfers'],
-                run_file,
-                transferred_set
+                client, settings.transfer_settings[mount_name]["transfers"], run_file, transferred_set
             )
 
             # Rsync folders from HPC to mount
