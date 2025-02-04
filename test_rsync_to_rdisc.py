@@ -46,7 +46,7 @@ def set_up_test(tmp_path_factory):
     # Setup Analysis
     run = "230920_A01131_0356_AHKM7VDRX3"
     analysis = f"{run}_1"  # run ok + exomedepth
-    analysis_transfer_settings = rsync_to_rdisc.settings.transfer_settings['bgarray']['transfers'][0]
+    analysis_transfer_settings = rsync_to_rdisc.settings.transfer_settings["bgarray"]["transfers"][0]
     # Other analysis will be added as part of the tests.
     Path(f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt").write_text(analysis)
 
@@ -158,7 +158,9 @@ class TestCheckRsync:
         rsync_cmd = ["rsync", "-rahuL", "--stats", "/source", "/target"]
         fake_process.register_subprocess(rsync_cmd)
         subprocess_result = subprocess.run(rsync_cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE, encoding="UTF-8")
-        rsync_result = rsync_to_rdisc.check_rsync(set_up_test["analysis1"], set_up_test["analysis1_transfer_settings"], "Exomes", subprocess_result)
+        rsync_result = rsync_to_rdisc.check_rsync(
+            set_up_test["analysis1"], set_up_test["analysis1_transfer_settings"], "Exomes", subprocess_result
+        )
         assert rsync_result == "ok"
         assert not Path(rsync_to_rdisc.settings.temp_error_path).exists()
         assert "No errors detected" in Path(rsync_to_rdisc.settings.log_path).read_text()
@@ -173,7 +175,9 @@ class TestCheckRsync:
         fake_process.register_subprocess(rsync_cmd, callback=self._callback_function, stderr=["error"])
         subprocess_result = subprocess.run(rsync_cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE, encoding="UTF-8")
         print(subprocess_result.returncode)
-        rsync_result = rsync_to_rdisc.check_rsync(set_up_test["analysis1"], set_up_test["analysis1_transfer_settings"], "Exomes", subprocess_result)
+        rsync_result = rsync_to_rdisc.check_rsync(
+            set_up_test["analysis1"], set_up_test["analysis1_transfer_settings"], "Exomes", subprocess_result
+        )
         assert rsync_result == "error"
         assert f"{set_up_test['analysis1']}_Exomes errors detected" in Path(rsync_to_rdisc.settings.log_path).read_text()
         mock_send_mail_transfer_state.assert_called_once()
@@ -359,8 +363,11 @@ class TestRsyncServerRemote:
         mock_send_mail_transfer_state.assert_called_once()
         mock_send_mail_transfer_state.reset_mock()
 
-        assert fake_process.call_count(["rsync","-rahuL", "--stats", fake_process.any()]) == 1
-        assert f"#########\nDate: 2025-01-01 13:00:00\nRun_folder: {set_up_test['run']}_3\n" in Path(rsync_to_rdisc.settings.log_path).read_text()
+        assert fake_process.call_count(["rsync", "-rahuL", "--stats", fake_process.any()]) == 1
+        assert (
+            f"#########\nDate: 2025-01-01 13:00:00\nRun_folder: {set_up_test['run']}_3\n"
+            in Path(rsync_to_rdisc.settings.log_path).read_text()
+        )
         assert (
             f"{set_up_test['run']}_3_TRANSFER\tok" in Path(f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt").read_text()
         )
@@ -399,7 +406,7 @@ class TestRsyncServerRemote:
         assert (
             f"{set_up_test['run']}_3_TRANSFER\tok" in Path(f"{rsync_to_rdisc.settings.wkdir}/transferred_runs.txt").read_text()
         )
-        assert fake_process.call_count(["rsync","-rahuL", "--stats", fake_process.any()]) == 1
+        assert fake_process.call_count(["rsync", "-rahuL", "--stats", fake_process.any()]) == 1
         rsync_cmd = fake_process.calls[0]
         count_include_exclude = 0
         # Assert that each include/exclude is accompanied with a value.
@@ -436,10 +443,9 @@ class TestRsyncServerRemote:
         )
 
         mock_send_mail_transfer_state.reset_mock()
-        assert fake_process.call_count(["rsync","-rahuL", "--stats", fake_process.any()]) == 1
+        assert fake_process.call_count(["rsync", "-rahuL", "--stats", fake_process.any()]) == 1
         assert "Just stderr" in Path(rsync_to_rdisc.settings.temp_error_path).read_text()
         assert "Just stderr" in Path(rsync_to_rdisc.settings.errorlog_path).read_text()
-
 
     # parametrize GATK / ExomeDepth error and no errors.
     @pytest.mark.parametrize(
