@@ -73,15 +73,37 @@ transfer_settings = {
                 "upload_exomedepth_vcf": False,
             },
             {
-                "name": "RNAseq",
-                "input": "/hpc/diaggen/data/upload/RNAseq/",
+                "name": "Transcriptomes",
+                "input": "/hpc/diaggen/data/upload/Transcriptomes/",
                 "output": "Illumina/Research_Dx/Transcriptomes/UMCU_hg38/",
-                "files_required": [""],
+                "files_required": ["workflow.done"],
                 "continue_without_email": False,
                 "upload_gatk_vcf": False,
                 "upload_exomedepth_vcf": False,
             },
-        ]
+            {
+                "name": "RAW_data_RNAseq",
+                "input": "/hpc/diaggen/data/upload/RAW_data_RNAseq/",
+                "output": "Validation/RAW_data/RNAseq/",
+                "files_required": [""],
+                "continue_without_email": False,
+                "upload_gatk_vcf": False,
+                "upload_exomedepth_vcf": False,
+                "include": [
+                    "**/",
+                    "Data",
+                    "Data/Intensities",
+                    "Data/Intensities/BaseCalls",
+                    "*RNASeq**",
+                    "*Reports**",
+                    "RunInfo.xml",
+                    "RunParameters.xml",
+                    "SampleSheet.csv",
+                    "md5sum.txt",
+                ],
+                "exclude": ["*"],
+            },
+        ],
     },
     "glims": {
         "mount_path": "/mnt/glims/",
@@ -95,6 +117,6 @@ transfer_settings = {
                 "upload_gatk_vcf": False,
                 "upload_exomedepth_vcf": False,
             },
-        ]
-    }
+        ],
+    },
 }
