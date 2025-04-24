@@ -238,6 +238,7 @@ def rsync_server_remote(hpc_server, client, to_be_transferred, mount_path, run_f
             "rsync",
             "-rahuL",
             "--stats",
+            "--prune-empty-dirs",
             *include_patterns,
             *exclude_patterns,
             source_destination,
