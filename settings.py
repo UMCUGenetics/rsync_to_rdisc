@@ -75,7 +75,7 @@ transfer_settings = {
             {
                 "name": "Transcriptomes",
                 "input": "/hpc/diaggen/data/upload/Transcriptomes/",
-                "output": "Illumina/Transcriptomes",
+                "output": "Illumina/Transcriptomes/",
                 "files_required": ["workflow.done"],
                 "continue_without_email": False,
                 "upload_gatk_vcf": False,
@@ -84,7 +84,7 @@ transfer_settings = {
             {
                 "name": "RAW_data_RNAseq",
                 "input": "/hpc/diaggen/data/upload/RAW_data_RNAseq/",
-                "output": "Validation/RAW_data/RNAseq/",
+                "output": "RAW_data/TRANSCRIPTOMES/",
                 "files_required": [""],
                 "continue_without_email": False,
                 "upload_gatk_vcf": False,
