@@ -75,7 +75,7 @@ transfer_settings = {
             {
                 "name": "Transcriptomes",
                 "input": "/hpc/diaggen/data/upload/Transcriptomes/",
-                "output": "Illumina/Research_Dx/Transcriptomes/UMCU_hg38/",
+                "output": "Illumina/Transcriptomes",
                 "files_required": ["workflow.done"],
                 "continue_without_email": False,
                 "upload_gatk_vcf": False,
