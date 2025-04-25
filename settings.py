@@ -85,7 +85,7 @@ transfer_settings = {
                 "name": "RAW_data_RNAseq",
                 "input": "/hpc/diaggen/data/upload/RAW_data_RNAseq/",
                 "output": "RAW_data/TRANSCRIPTOMES/",
-                "files_required": [""],
+                "files_required": ["TransferDone.txt"],
                 "continue_without_email": False,
                 "upload_gatk_vcf": False,
                 "upload_exomedepth_vcf": False,
