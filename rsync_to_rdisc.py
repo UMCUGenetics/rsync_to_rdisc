@@ -247,7 +247,7 @@ def rsync_server_remote(hpc_server, client, to_be_transferred, mount_path, run_f
         subprocess_result = subprocess.run(rsync_cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE, encoding="UTF-8")
 
         with open(settings.log_path, "a", newline="\n") as log_file:
-            log_file.writelines(subprocess_result.stderr)
+            log_file.writelines(subprocess_result.stdout)
 
         # Write stderr to two files
         with open(settings.errorlog_path, "a", newline="\n") as stderr_log:
