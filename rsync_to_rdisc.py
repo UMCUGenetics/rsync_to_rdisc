@@ -223,11 +223,11 @@ def rsync_server_remote(hpc_server, client, to_be_transferred, mount_path, run_f
 
         # Get include and exclude patterns as list to easily access key-value pair in unit test.
         if transfer_settings.get("include", None):
-            include_patterns = [f"--include='{pattern}'" for pattern in transfer_settings["include"]]
+            include_patterns = [f"--include={pattern}" for pattern in transfer_settings["include"]]
         else:
             include_patterns = []
         if transfer_settings.get("exclude", None):
-            exclude_patterns = [f"--exclude='{pattern}'" for pattern in transfer_settings["exclude"]]
+            exclude_patterns = [f"--exclude={pattern}" for pattern in transfer_settings["exclude"]]
         else:
             exclude_patterns = []
 
