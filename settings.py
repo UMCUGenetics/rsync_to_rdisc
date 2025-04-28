@@ -96,6 +96,7 @@ transfer_settings = {
                     "Data/Intensities/BaseCalls",
                     "*RNASeq**",
                     "*Reports**",
+                    "*InterOp**",
                     "RunInfo.xml",
                     "RunParameters.xml",
                     "SampleSheet.csv",
