@@ -44,7 +44,7 @@ def send_mail_lost_mount(mount_name, run_file):
 
 def send_mail_lost_hpc(hpc_host, run_file):
     send_email(
-        subject=f"ERROR: Connection to HPC transfernodes {hpc_host} are lost",
+        subject=f"ERROR: Connection to HPC transfer nodes {hpc_host} are lost",
         template="lost_hpc.html",
         body_params={"filename": hpc_host, "run_file": run_file},
     )
@@ -111,9 +111,6 @@ def is_mount_available(mount_name, mount_path, run_file):
         if not Path(mount_path).exists():
             is_available = False
 
-    # Send email if mount is not available
-    if not is_available:
-        send_mail_lost_mount(mount_name, run_file)
     return is_available
 
 
@@ -405,8 +402,8 @@ if __name__ == "__main__":
             rsync_succes = rsync_server_remote(hpc_server, client, to_be_transferred, mount_path, run_file)
             if not rsync_succes:
                 remove_run_file = False
-        else:  # Mount not available block upcoming transfers
-            # TODO: Do we want this?
+        else:  # Mount not available, send mail and block upcoming transfers
+            send_mail_lost_mount(mount_name, run_file)
             remove_run_file = False
 
     # Remove run_file if transfer daemon shouldn't be blocked to prevent repeated mailing.
