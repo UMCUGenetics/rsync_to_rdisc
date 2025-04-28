@@ -100,6 +100,7 @@ transfer_settings = {
                     "RunParameters.xml",
                     "SampleSheet.csv",
                     "md5sum.txt",
+                    "TransferDone.txt",
                 ],
                 "exclude": ["*"],
             },
