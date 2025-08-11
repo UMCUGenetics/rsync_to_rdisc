@@ -302,7 +302,7 @@ def rsync_server_remote(hpc_server, client, to_be_transferred, mount_path, run_f
 def run_vcf_upload(vcf_file, vcf_type, run):
     upload_vcf = subprocess.run(
         (
-            f"uv run --directory {settings.franklin_vcf_upload} franklin-vcf-upload upload {vcf_file} '{vcf_type}' {run}"
+            f"{settings.run_franklin_vcf_upload} {vcf_file} '{vcf_type}' {run}"
         ),
         shell=True,
         stdout=subprocess.PIPE,
