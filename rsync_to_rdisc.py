@@ -271,7 +271,7 @@ def rsync_server_remote(hpc_server, client, to_be_transferred, mount_path, run_f
 
             if transfer_settings["upload_gatk_vcf"]:
                 upload_state, upload_result_gatk = upload_gatk_vcf(
-                    run=run, run_folder="{output}/{run}".format(output=transfer_settings["output"], run=run)
+                    run=run, run_folder="{output}/{run}".format(output=target_path, run=run)
                 )
                 if upload_state != "ok":
                     # Warning or error
@@ -279,7 +279,7 @@ def rsync_server_remote(hpc_server, client, to_be_transferred, mount_path, run_f
 
             if transfer_settings["upload_exomedepth_vcf"]:
                 upload_state, upload_result_exomedepth = upload_exomedepth_vcf(
-                    run=run, run_folder="{output}/{run}".format(output=transfer_settings["output"], run=run)
+                    run=run, run_folder="{output}/{run}".format(output=target_path, run=run)
                 )
                 # To avoid email_state 'vcf_upload_error' to become a 'vcf_upload_warning'
                 if upload_state != "ok" and email_state != "vcf_upload_error":
@@ -302,8 +302,7 @@ def rsync_server_remote(hpc_server, client, to_be_transferred, mount_path, run_f
 def run_vcf_upload(vcf_file, vcf_type, run):
     upload_vcf = subprocess.run(
         (
-            f"source {settings.alissa_vcf_upload}/venv/bin/activate && "
-            f"python {settings.alissa_vcf_upload}/vcf_upload.py {vcf_file} '{vcf_type}' {run}"
+            f"{settings.run_franklin_vcf_upload} {vcf_file} '{vcf_type}' {run}"
         ),
         shell=True,
         stdout=subprocess.PIPE,
