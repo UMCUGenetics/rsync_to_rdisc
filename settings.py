@@ -8,7 +8,7 @@ log_path = f"{wkdir}/Rsync_Dx.log"
 errorlog_path = f"{wkdir}/Rsync_Dx.errorlog"
 
 # Tools
-alissa_vcf_upload = "/diaggen/software/production/alissa_vcf_upload/"
+run_franklin_vcf_upload = "uv run --directory /diaggen/software/production/franklin_vcf_upload/ franklin-vcf-upload upload"
 
 """ Server/user settings """
 host_keys = ""
